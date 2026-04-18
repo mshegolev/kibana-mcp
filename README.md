@@ -1,5 +1,7 @@
 # kibana-mcp
 
+<!-- mcp-name: io.github.mshegolev/kibana-mcp -->
+
 [![PyPI version](https://badge.fury.io/py/kibana-mcp.svg)](https://pypi.org/project/kibana-mcp/)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
