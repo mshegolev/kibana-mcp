@@ -1,0 +1,61 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.mshegolev/kibana-mcp",
+  "description": "Kibana/Elasticsearch MCP — log search, aggregations, index discovery, dashboards.",
+  "repository": {
+    "url": "https://github.com/mshegolev/kibana-mcp",
+    "source": "github"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "kibana-mcp",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "KIBANA_URL",
+          "description": "Kibana base URL (e.g. https://kibana.example.com)",
+          "isRequired": true,
+          "format": "string"
+        },
+        {
+          "name": "ELASTICSEARCH_URL",
+          "description": "Direct Elasticsearch URL. If unset, ES requests route through the Kibana Console proxy.",
+          "isRequired": false,
+          "format": "string"
+        },
+        {
+          "name": "KIBANA_API_KEY",
+          "description": "Elasticsearch API key (ApiKey base64(id:api_key) format). Takes priority over Basic auth.",
+          "isRequired": false,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "KIBANA_USERNAME",
+          "description": "HTTP Basic auth username. Used only when KIBANA_API_KEY is not set.",
+          "isRequired": false,
+          "format": "string"
+        },
+        {
+          "name": "KIBANA_PASSWORD",
+          "description": "HTTP Basic auth password.",
+          "isRequired": false,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "KIBANA_SSL_VERIFY",
+          "description": "Verify SSL certificates (true/false). Set to 'false' for self-signed certs.",
+          "isRequired": false,
+          "format": "string",
+          "default": "true"
+        }
+      ]
+    }
+  ]
+}
