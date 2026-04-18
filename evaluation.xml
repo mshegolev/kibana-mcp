@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+kibana-mcp evaluation suite (10 read-only QA pairs).
+
+Per mcp-builder Phase 4 spec. Answers are PLACEHOLDER because this MCP wraps a
+customer-owned Kibana/Elasticsearch cluster. See EVALUATION.md for how to fill
+in answers against a live instance.
+-->
+<evaluation>
+  <qa_pair>
+    <question>Using kibana_list_indices with default params, how many non-system indices are returned? Respond with an integer.</question>
+    <answer>__VERIFY_ON_INSTANCE__</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Among all non-system indices, which one has the highest docs_count? Respond with the exact index name string.</question>
+    <answer>__VERIFY_ON_INSTANCE__</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Among all non-system indices, which one has the largest store_size_bytes? Respond with the exact index name string.</question>
+    <answer>__VERIFY_ON_INSTANCE__</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Search the first index returned by kibana_list_indices for the query 'level:ERROR' with size=100 and no time filter. How many total matches does Elasticsearch report? Respond with an integer.</question>
+    <answer>__VERIFY_ON_INSTANCE__</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Aggregate the first non-system index by field 'level.keyword' (or 'level' if not a keyword) with the default count metric. What is the key of the bucket with the highest doc_count? Respond with the key value.</question>
+    <answer>__VERIFY_ON_INSTANCE__</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Run kibana_aggregate_logs on the same index grouped by 'service.keyword' (or 'service') with metric='avg' and metric_field='response_time_ms' (if available). Which service has the highest metric_value? Respond with the exact service name.</question>
+    <answer>__VERIFY_ON_INSTANCE__</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Using kibana_list_dashboards with default params (no search filter), how many dashboards exist in total? Respond with an integer.</question>
+    <answer>__VERIFY_ON_INSTANCE__</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>List dashboards whose titles contain 'overview' (search='overview'). What is the title of the first dashboard returned? Respond with the exact title string.</question>
+    <answer>__VERIFY_ON_INSTANCE__</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>For the first dashboard returned by kibana_list_dashboards (default order), what is its panels_count when fetched via kibana_get_dashboard? Respond with an integer.</question>
+    <answer>__VERIFY_ON_INSTANCE__</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Search for logs with query 'status:500' (no time filter, size=50) in the first non-system index. Of the returned hits, how many distinct values of '_index' are represented? Respond with an integer.</question>
+    <answer>__VERIFY_ON_INSTANCE__</answer>
+  </qa_pair>
+</evaluation>

@@ -37,7 +37,15 @@ from kibana_mcp.models import (
 
 # ── Pure helper functions (unit-testable without HTTP) ────────────────────────
 
-_SYSTEM_INDEX_PREFIXES = (".", "kibana", "ilm-history", "shrink-")
+# Index name prefixes treated as "system" and hidden by default. Covers the
+# dot-prefixed internal indices (.kibana, .security, .monitoring…) plus
+# non-dot system indices that still appear in _cat/indices output.
+_SYSTEM_INDEX_PREFIXES: tuple[str, ...] = (".", "kibana", "ilm-history", "shrink-")
+
+
+def _is_system_index(name: str) -> bool:
+    """Return True when ``name`` matches any prefix in ``_SYSTEM_INDEX_PREFIXES``."""
+    return any(name.startswith(p) for p in _SYSTEM_INDEX_PREFIXES)
 
 
 def _format_bytes(size_bytes: int | None) -> str | None:
@@ -218,8 +226,9 @@ def kibana_list_indices(
         Field(
             default=False,
             description=(
-                "Whether to include system/internal indices (those starting with '.'). "
-                "Default False — system indices are hidden to avoid noise."
+                "Whether to include system/internal indices. Hidden by default: "
+                "any prefix in {'.', 'kibana', 'ilm-history', 'shrink-'} — covers "
+                "Kibana internals, ILM history, and shrunk index leftovers."
             ),
         ),
     ] = False,
@@ -256,7 +265,7 @@ def kibana_list_indices(
         indices: list[IndexSummary] = []
         for entry in data:
             idx_name: str = entry.get("index", "")
-            if not include_system and (idx_name.startswith(".") or any(idx_name.startswith(p) for p in ("kibana",))):
+            if not include_system and _is_system_index(idx_name):
                 continue
             raw_docs = entry.get("docs.count")
             raw_size = entry.get("store.size") or entry.get("pri.store.size")
