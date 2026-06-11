@@ -453,15 +453,56 @@ class TestSearchLogs:
         backend.post_es.assert_not_called()
 
     def test_search_logs_with_datetime_time_from(self) -> None:
-        """time_from as datetime object is converted to ISO string."""
+        """time_from as datetime lands in the body as range gte ISO string."""
         backend = self._make_backend()
         client = LogClient(backend=backend)
         client.search_logs(
             "*", index="logs-*",
             time_from=datetime(2026, 1, 1, tzinfo=timezone.utc)
         )
-        # Backend must be called (no exception from datetime handling)
         backend.post_es.assert_called_once()
+        body = backend.post_es.call_args[0][1]
+        gte = body["query"]["bool"]["filter"][0]["range"]["@timestamp"]["gte"]
+        assert gte == "2026-01-01T00:00:00+00:00"
+
+    def test_search_logs_size_and_sort_propagated_to_body(self) -> None:
+        """size and sort kwargs land in the request body unchanged."""
+        backend = self._make_backend()
+        client = LogClient(backend=backend)
+        client.search_logs("*", size=42, sort="desc")
+        body = backend.post_es.call_args[0][1]
+        assert body["size"] == 42
+        assert body["sort"] == [{"@timestamp": "desc"}]
+        assert body["query"]["bool"]["must"] == [
+            {"query_string": {"query": "*"}}
+        ]
+
+    def test_search_logs_custom_trace_candidates_used_in_extraction(
+        self,
+    ) -> None:
+        """Custom trace_id_candidates are actually used during search_logs."""
+        backend = MagicMock()
+        backend.post_es.return_value = {
+            "hits": {
+                "total": {"value": 1},
+                "hits": [
+                    {
+                        "_id": "1",
+                        "_index": "logs",
+                        "_source": {
+                            "custom": {"trace": "tid-777"},
+                            "trace.id": "default-candidate-ignored",
+                        },
+                    }
+                ],
+            },
+            "took": 1,
+        }
+        client = LogClient(
+            backend=backend, trace_id_candidates=["custom.trace"]
+        )
+        hits = client.search_logs("*")
+        assert hits[0].trace_id == "tid-777"
 
     def test_search_logs_fields_only_hit_populates_loghit(self) -> None:
         """Hit without _source but with `fields` (fields API) is extracted."""
