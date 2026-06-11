@@ -342,6 +342,13 @@ class TestSearchLogs:
         call_args = backend.post_es.call_args
         assert call_args[0][0] == "/logs-*/_search"
 
+    def test_search_logs_index_outer_whitespace_stripped(self) -> None:
+        """Outer whitespace in index is stripped before path interpolation."""
+        backend = self._make_backend()
+        client = LogClient(backend=backend)
+        client.search_logs("*", index=" logs-* ")
+        assert backend.post_es.call_args[0][0] == "/logs-*/_search"
+
     def test_search_logs_index_validation_raises(self) -> None:
         """index with injection chars raises ValueError before backend call."""
         client = LogClient(backend=self._make_backend())

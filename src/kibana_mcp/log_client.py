@@ -365,8 +365,9 @@ class LogClient:
             ValueError: If ``index`` contains injection characters.
             Exception: Backend exceptions are re-raised as-is.
         """
-        # Security gate: validate index pattern before path interpolation
-        _validate_index_pattern(index, "index")
+        # Security gate: validate index pattern before path interpolation.
+        # Use the cleaned (whitespace-stripped) return value for the path.
+        index = _validate_index_pattern(index, "index")
 
         # Normalise time bounds to str | None
         def _to_str(val: datetime | str | None) -> str | None:
