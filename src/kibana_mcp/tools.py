@@ -48,6 +48,47 @@ def _is_system_index(name: str) -> bool:
     return any(name.startswith(p) for p in _SYSTEM_INDEX_PREFIXES)
 
 
+# Characters that legal ES/OpenSearch index names and patterns never contain
+# but that would alter the request path or query string if interpolated.
+_INDEX_FORBIDDEN_CHARS: tuple[str, ...] = ("/", "?", "#", "%", "\\")
+
+
+def _validate_index_pattern(value: str, param_name: str = "index") -> str:
+    """Validate a user-supplied index name / pattern before path interpolation.
+
+    The value is interpolated into the request path (``/{index}/_search``,
+    ``/_cat/indices/{pattern}``) by both backends, so path or query delimiters
+    could redirect a read-only call to a different — potentially destructive —
+    endpoint (e.g. ``index='logs/_delete_by_query?'`` turns
+    ``POST /{index}/_search`` into ``POST /logs/_delete_by_query``).
+
+    Rejects ``/``, ``?``, ``#``, ``%``, ``\\``, internal whitespace, and
+    leading ``_`` (per comma-separated segment). Commas (multi-index) and
+    ``*`` wildcards stay allowed. Returns the value with outer whitespace
+    stripped.
+
+    Raises:
+        ValueError: If the value is empty or contains forbidden characters.
+    """
+    cleaned = value.strip()
+    if not cleaned:
+        raise ValueError(f"{param_name} must not be empty")
+    if any(ch in cleaned for ch in _INDEX_FORBIDDEN_CHARS) or any(
+        ch.isspace() for ch in cleaned
+    ):
+        raise ValueError(
+            f"{param_name} contains characters not allowed in index names/patterns "
+            f"('/', '?', '#', '%', '\\', whitespace): {cleaned!r}"
+        )
+    for segment in cleaned.split(","):
+        if segment.strip().startswith("_"):
+            raise ValueError(
+                f"{param_name} segments must not start with '_' "
+                f"(reserved for ES/OpenSearch APIs): {cleaned!r}"
+            )
+    return cleaned
+
+
 def _format_bytes(size_bytes: int | None) -> str | None:
     """Format a byte count as a human-readable string (GB / MB / KB / B).
 
@@ -259,7 +300,11 @@ def kibana_list_indices(
     try:
         client = get_client()
         params: dict[str, Any] = {"format": "json", "bytes": "b"}
-        path = f"/_cat/indices/{pattern}" if pattern and pattern != "*" else "/_cat/indices"
+        if pattern and pattern != "*":
+            pattern = _validate_index_pattern(pattern, "pattern")
+            path = f"/_cat/indices/{pattern}"
+        else:
+            path = "/_cat/indices"
         data: list[dict[str, Any]] = client.get_es(path, params=params) or []
 
         indices: list[IndexSummary] = []
@@ -416,6 +461,7 @@ def kibana_search_logs(
     try:
         if sort_order not in ("asc", "desc"):
             raise ValueError(f"sort_order must be 'asc' or 'desc', got {sort_order!r}")
+        index = _validate_index_pattern(index, "index")
 
         client = get_client()
         body = _build_search_body(
@@ -580,6 +626,7 @@ def kibana_aggregate_logs(
             raise ValueError(f"metric must be one of {valid_metrics}, got {metric!r}")
         if metric != "count" and not metric_field:
             raise ValueError(f"metric_field is required when metric is {metric!r}")
+        index = _validate_index_pattern(index, "index")
 
         client = get_client()
         body = _build_aggregation_body(

@@ -7,6 +7,8 @@ directly without mocking any HTTP client.
 
 from __future__ import annotations
 
+import pytest
+
 from kibana_mcp.tools import (
     _build_aggregation_body,
     _build_search_body,
@@ -14,7 +16,55 @@ from kibana_mcp.tools import (
     _parse_epoch,
     _shape_hit,
     _size_human,
+    _validate_index_pattern,
 )
+
+
+class TestValidateIndexPattern:
+    """Read-only guard: index/pattern must not alter the request path."""
+
+    @pytest.mark.parametrize(
+        "value",
+        [
+            "logs-*",
+            "filebeat-2026.04.18",
+            "logs-app,logs-web",
+            "logs-*,-logs-old",
+            ".kibana*",
+            "*",
+        ],
+    )
+    def test_legal_patterns_pass_through(self, value: str) -> None:
+        assert _validate_index_pattern(value) == value
+
+    def test_outer_whitespace_is_stripped(self) -> None:
+        assert _validate_index_pattern("  logs-*  ") == "logs-*"
+
+    @pytest.mark.parametrize(
+        "value",
+        [
+            "logs/_delete_by_query?",  # the path-injection regression case
+            "logs/extra",
+            "logs?pretty",
+            "logs#frag",
+            "logs%2f_delete",
+            "logs\\admin",
+            "logs idx",
+            "_all",
+            "logs-*,_security",
+        ],
+    )
+    def test_injection_vectors_rejected(self, value: str) -> None:
+        with pytest.raises(ValueError):
+            _validate_index_pattern(value)
+
+    def test_empty_rejected(self) -> None:
+        with pytest.raises(ValueError, match="empty"):
+            _validate_index_pattern("   ")
+
+    def test_param_name_in_message(self) -> None:
+        with pytest.raises(ValueError, match="pattern"):
+            _validate_index_pattern("a/b", "pattern")
 
 
 class TestFormatBytes:

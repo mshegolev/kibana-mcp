@@ -224,6 +224,35 @@ class TestKibanaSearchLogs:
             kibana_search_logs(index="logs-*", query="*", sort_order="invalid")
 
     @resp_lib.activate
+    def test_path_injection_index_rejected_without_http_call(self) -> None:
+        """Read-only guard: index='logs/_delete_by_query?' must be rejected
+        before any HTTP request is made (it would otherwise redirect the
+        read-only _search POST to a destructive endpoint)."""
+        from mcp.server.fastmcp.exceptions import ToolError
+
+        with pytest.raises(ToolError, match="index"):
+            kibana_search_logs(index="logs/_delete_by_query?", query="*")
+        assert len(resp_lib.calls) == 0
+
+    @resp_lib.activate
+    def test_path_injection_pattern_rejected_in_list_indices(self) -> None:
+        """Same guard for the _cat/indices pattern parameter."""
+        from mcp.server.fastmcp.exceptions import ToolError
+
+        with pytest.raises(ToolError, match="pattern"):
+            kibana_list_indices(pattern="logs?v&h=index")
+        assert len(resp_lib.calls) == 0
+
+    @resp_lib.activate
+    def test_path_injection_index_rejected_in_aggregate(self) -> None:
+        """Same guard for kibana_aggregate_logs."""
+        from mcp.server.fastmcp.exceptions import ToolError
+
+        with pytest.raises(ToolError, match="index"):
+            kibana_aggregate_logs(index="logs/_delete_by_query?", group_by="level")
+        assert len(resp_lib.calls) == 0
+
+    @resp_lib.activate
     def test_truncation_hint_when_more_than_20_hits(self) -> None:
         hits = [_make_hit(i) for i in range(25)]
         resp_lib.add(resp_lib.POST, f"{ES_URL}/logs-*/_search", json=_make_search_response(hits, total=25), status=200)
