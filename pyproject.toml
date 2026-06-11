@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "kibana-mcp"
-version = "0.1.1"
+version = "0.2.0"
 description = "MCP server for Kibana / Elasticsearch — log search, aggregations, index discovery, dashboards."
 readme = "README.md"
 license = "MIT"
@@ -38,6 +38,10 @@ dev = [
     "pytest>=7",
     "ruff>=0.5",
     "responses>=0.25",
+]
+opensearch = [
+    "opensearch-py>=2.4",
+    "boto3>=1.26",
 ]
 
 [project.scripts]
