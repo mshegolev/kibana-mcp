@@ -1,8 +1,11 @@
 """OpenSearch REST client via opensearch-py SDK.
 
 Duck-type compatible with :class:`kibana_mcp.client.KibanaClient` — exposes
-``get_es`` / ``post_es`` / ``close`` with identical signatures so ``tools.py``
-requires no changes when ``OPENSEARCH_MODE=true``.
+``get_es`` / ``post_es`` / ``get_kibana`` / ``close`` with identical signatures
+so ``tools.py`` requires no changes when ``OPENSEARCH_MODE=true``.
+``get_kibana`` delegates to a lazily constructed ``KibanaClient`` (requires
+``KIBANA_URL``) because dashboard tools keep using the Kibana REST path
+regardless of mode — OS mode affects only ES-endpoint calls.
 
 Auth priority (auto-detect, no ``OPENSEARCH_AUTH`` set):
 - ``AWS_REGION`` set → SigV4 via :class:`opensearchpy.AWSV4SignerAuth` (boto3)
@@ -148,6 +151,10 @@ class OpenSearchClient:
             ssl_verify = _parse_bool(os.environ.get("KIBANA_SSL_VERIFY"), default=True)
         self.ssl_verify = ssl_verify
 
+        # Lazily constructed KibanaClient for get_kibana() delegation
+        # (dashboard tools keep the Kibana REST path even in OS mode).
+        self._kibana: Any | None = None
+
         # Resolve auth strategy and build the OpenSearch client in one pass.
         # Each auth mode calls OpenSearch() once with the correct kwargs.
         # Bearer tokens MUST be passed via headers={"Authorization": "Bearer <key>"}
@@ -274,8 +281,40 @@ class OpenSearchClient:
             body=body,
         )
 
+    def get_kibana(self, path: str, *, params: dict[str, Any] | None = None) -> Any:
+        """GET a Kibana REST endpoint; return parsed JSON.
+
+        Dashboard tools keep using the Kibana REST path regardless of mode —
+        ``OPENSEARCH_MODE`` affects only ES-endpoint calls. Delegates to a
+        lazily constructed :class:`kibana_mcp.client.KibanaClient`, which
+        requires ``KIBANA_URL`` to be set.
+
+        Raises:
+            ConfigError: If ``KIBANA_URL`` is not set — Kibana Saved Objects
+                API is not part of OpenSearch, so dashboard tools need an
+                explicit Kibana endpoint even in OpenSearch mode.
+        """
+        if self._kibana is None:
+            if not os.environ.get("KIBANA_URL", "").strip():
+                raise ConfigError(
+                    "Kibana dashboard tools require KIBANA_URL even when "
+                    "OPENSEARCH_MODE=true — set KIBANA_URL, or avoid the "
+                    "dashboard tools in OpenSearch mode"
+                )
+            from kibana_mcp.client import KibanaClient  # noqa: PLC0415
+
+            self._kibana = KibanaClient()
+        return self._kibana.get_kibana(path, params=params)
+
     def close(self) -> None:
-        """Close the underlying OpenSearch connection."""
+        """Close the underlying OpenSearch connection (and the lazy
+        KibanaClient, if dashboard tools constructed one)."""
+        if getattr(self, "_kibana", None) is not None:
+            try:
+                self._kibana.close()
+            except Exception:
+                pass
+            self._kibana = None
         if hasattr(self, "_client"):
             try:
                 self._client.close()

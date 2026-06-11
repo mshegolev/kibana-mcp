@@ -428,6 +428,65 @@ class TestOpenSearchClientMethods:
             client.close()  # must not raise
 
 
+class TestOpenSearchClientGetKibana:
+    """get_kibana() delegation — dashboard tools keep the Kibana REST path."""
+
+    @pytest.fixture(autouse=True)
+    def _os_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("OPENSEARCH_URL", "https://os.example.com")
+        monkeypatch.delenv("KIBANA_API_KEY", raising=False)
+        monkeypatch.delenv("AWS_REGION", raising=False)
+        monkeypatch.delenv("KIBANA_USERNAME", raising=False)
+        monkeypatch.delenv("KIBANA_PASSWORD", raising=False)
+        monkeypatch.delenv("OPENSEARCH_AUTH", raising=False)
+
+    def test_get_kibana_without_kibana_url_raises_config_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """No KIBANA_URL → actionable ConfigError, not AttributeError."""
+        monkeypatch.delenv("KIBANA_URL", raising=False)
+        with patch("kibana_mcp.os_client.OpenSearch", return_value=MagicMock()):
+            client = OpenSearchClient()
+            with pytest.raises(ConfigError, match="KIBANA_URL"):
+                client.get_kibana("/api/saved_objects/_find")
+
+    def test_get_kibana_delegates_to_kibana_client(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """KIBANA_URL set → lazily constructs KibanaClient and delegates."""
+        monkeypatch.setenv("KIBANA_URL", "https://kibana.example.com")
+        mock_kibana = MagicMock()
+        mock_kibana.get_kibana.return_value = {"saved_objects": []}
+        with patch("kibana_mcp.os_client.OpenSearch", return_value=MagicMock()):
+            client = OpenSearchClient()
+            with patch(
+                "kibana_mcp.client.KibanaClient", return_value=mock_kibana
+            ) as mock_cls:
+                result = client.get_kibana(
+                    "/api/saved_objects/_find", params={"type": "dashboard"}
+                )
+                # Second call reuses the cached KibanaClient
+                client.get_kibana("/api/saved_objects/_find")
+        assert result == {"saved_objects": []}
+        mock_cls.assert_called_once()
+        mock_kibana.get_kibana.assert_any_call(
+            "/api/saved_objects/_find", params={"type": "dashboard"}
+        )
+
+    def test_close_closes_lazy_kibana_client(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """close() also closes the lazily constructed KibanaClient."""
+        monkeypatch.setenv("KIBANA_URL", "https://kibana.example.com")
+        mock_kibana = MagicMock()
+        with patch("kibana_mcp.os_client.OpenSearch", return_value=MagicMock()):
+            client = OpenSearchClient()
+            with patch("kibana_mcp.client.KibanaClient", return_value=mock_kibana):
+                client.get_kibana("/api/saved_objects/_find")
+            client.close()
+        mock_kibana.close.assert_called_once()
+
+
 class TestOpenSearchClientLiveIntegration:
     """Live integration test — skips automatically when OPENSEARCH_TEST_URL unset."""
 

@@ -102,3 +102,38 @@ class TestOSModeSwitch:
         with patch("kibana_mcp.os_client.OpenSearch", None):
             with pytest.raises(ConfigError, match="opensearch-py"):
                 get_client()
+
+    def test_dashboard_tool_in_os_mode_without_kibana_url_is_actionable(
+        self, os_env: None
+    ) -> None:
+        """OS mode + dashboard tool + no KIBANA_URL → ToolError mentioning
+        KIBANA_URL (actionable ConfigError), NOT a raw AttributeError."""
+        from mcp.server.fastmcp.exceptions import ToolError
+
+        from kibana_mcp.tools import kibana_list_dashboards
+
+        with patch("kibana_mcp.os_client.OpenSearch", return_value=MagicMock()):
+            with pytest.raises(ToolError, match="KIBANA_URL") as excinfo:
+                kibana_list_dashboards()
+        assert "AttributeError" not in str(excinfo.value)
+
+    def test_dashboard_tool_in_os_mode_with_kibana_url_delegates(
+        self, os_env: None, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """OS mode + KIBANA_URL set → dashboard tool works via the
+        delegated KibanaClient (Kibana REST path kept regardless of mode)."""
+        from kibana_mcp.tools import kibana_list_dashboards
+
+        monkeypatch.setenv("KIBANA_URL", "https://kibana.example.com")
+        mock_kibana = MagicMock()
+        mock_kibana.get_kibana.return_value = {
+            "total": 1,
+            "saved_objects": [
+                {"id": "d1", "attributes": {"title": "Ops"}, "updated_at": None}
+            ],
+        }
+        with patch("kibana_mcp.os_client.OpenSearch", return_value=MagicMock()):
+            with patch("kibana_mcp.client.KibanaClient", return_value=mock_kibana):
+                result = kibana_list_dashboards()
+        assert result.structuredContent["total"] == 1
+        assert result.structuredContent["dashboards"][0]["id"] == "d1"
