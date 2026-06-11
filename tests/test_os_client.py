@@ -427,6 +427,43 @@ class TestOpenSearchClientInit:
             with pytest.raises(ConfigError):
                 OpenSearchClient()
 
+    def test_auth_mode_env_whitespace_stripped(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """OPENSEARCH_AUTH=' token ' (whitespace from shell/compose) still
+        selects token mode instead of hitting the unknown-mode branch."""
+        monkeypatch.setenv("OPENSEARCH_URL", "https://os.example.com")
+        monkeypatch.setenv("OPENSEARCH_AUTH", " token ")
+        monkeypatch.setenv("KIBANA_API_KEY", "mykey")
+        monkeypatch.delenv("AWS_REGION", raising=False)
+
+        mock_client = MagicMock()
+        with patch(
+            "kibana_mcp.os_client.OpenSearch", return_value=mock_client
+        ) as mock_os_cls:
+            OpenSearchClient()
+            _, kwargs = mock_os_cls.call_args
+            assert kwargs.get("headers", {}).get("Authorization") == "Bearer mykey"
+
+    def test_auth_mode_constructor_override(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """auth_mode kwarg overrides the OPENSEARCH_AUTH env var."""
+        monkeypatch.setenv("OPENSEARCH_URL", "https://os.example.com")
+        monkeypatch.setenv("OPENSEARCH_AUTH", "basic")
+        monkeypatch.setenv("KIBANA_API_KEY", "mykey")
+        monkeypatch.delenv("AWS_REGION", raising=False)
+        monkeypatch.delenv("KIBANA_USERNAME", raising=False)
+        monkeypatch.delenv("KIBANA_PASSWORD", raising=False)
+
+        mock_client = MagicMock()
+        with patch(
+            "kibana_mcp.os_client.OpenSearch", return_value=mock_client
+        ) as mock_os_cls:
+            OpenSearchClient(auth_mode="token")
+            _, kwargs = mock_os_cls.call_args
+            assert kwargs.get("headers", {}).get("Authorization") == "Bearer mykey"
+
 
 class TestOpenSearchClientMethods:
     """Duck-type method compatibility with KibanaClient."""

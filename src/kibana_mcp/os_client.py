@@ -103,6 +103,9 @@ class OpenSearchClient:
         username: Override ``KIBANA_USERNAME``. If ``None``, read from env.
         password: Override ``KIBANA_PASSWORD``. If ``None``, read from env.
         ssl_verify: Override ``KIBANA_SSL_VERIFY``. If ``None``, read from env.
+        auth_mode: Override ``OPENSEARCH_AUTH`` (``"sigv4"`` / ``"basic"`` /
+            ``"token"``). If ``None``, read from env. Whitespace is stripped
+            and the value lowercased.
 
     Raises:
         ConfigError: If ``OPENSEARCH_URL`` is missing, or if ``opensearch-py``
@@ -117,6 +120,7 @@ class OpenSearchClient:
         username: str | None = None,
         password: str | None = None,
         ssl_verify: bool | None = None,
+        auth_mode: str | None = None,
     ) -> None:
         # 1. Validate opensearch-py is installed
         if OpenSearch is None:
@@ -143,8 +147,11 @@ class OpenSearchClient:
             password if password is not None else os.environ.get("KIBANA_PASSWORD", "")
         )
 
-        # 4. Read forced auth mode
-        auth_mode = os.environ.get("OPENSEARCH_AUTH", "").lower()
+        # 4. Read forced auth mode — strip (shell/compose files may add
+        # whitespace), consistent with _parse_bool / _validate_url.
+        auth_mode = (
+            auth_mode if auth_mode is not None else os.environ.get("OPENSEARCH_AUTH", "")
+        ).strip().lower()
 
         # 5. SSL verification — reuse KIBANA_SSL_VERIFY
         if ssl_verify is None:
