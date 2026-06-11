@@ -14,7 +14,7 @@ from kibana_mcp.client import KibanaClient
 
 logger = logging.getLogger(__name__)
 
-_client: KibanaClient | None = None
+_client: KibanaClient | Any | None = None
 _client_lock = threading.Lock()
 
 
@@ -39,8 +39,12 @@ async def app_lifespan(_app: FastMCP) -> AsyncIterator[dict[str, Any]]:
 mcp = FastMCP("kibana_mcp", lifespan=app_lifespan)
 
 
-def get_client() -> KibanaClient:
-    """Return a cached :class:`KibanaClient` (thread-safe lazy-init).
+def get_client() -> KibanaClient | Any:
+    """Return a cached client instance (thread-safe lazy-init).
+
+    Selects backend by OPENSEARCH_MODE env var:
+    - If OPENSEARCH_MODE is true/1/yes/on → OpenSearchClient
+    - Else → KibanaClient (requests-based)
 
     FastMCP runs synchronous tools in worker threads via
     ``anyio.to_thread.run_sync``; concurrent first-calls could otherwise
@@ -51,5 +55,17 @@ def get_client() -> KibanaClient:
     if _client is None:
         with _client_lock:
             if _client is None:  # double-checked locking
-                _client = KibanaClient()
+                from kibana_mcp.client import KibanaClient, _parse_bool  # noqa: PLC0415
+                from kibana_mcp.os_client import OpenSearchClient  # noqa: PLC0415
+                import os as _os  # noqa: PLC0415
+
+                opensearch_mode = _parse_bool(
+                    _os.environ.get("OPENSEARCH_MODE"), default=False
+                )
+
+                if opensearch_mode:
+                    _client = OpenSearchClient()
+                else:
+                    _client = KibanaClient()
+
     return _client
