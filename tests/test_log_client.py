@@ -401,6 +401,35 @@ class TestSearchLogs:
         # Backend must be called (no exception from datetime handling)
         backend.post_es.assert_called_once()
 
+    def test_search_logs_fields_only_hit_populates_loghit(self) -> None:
+        """Hit without _source but with `fields` (fields API) is extracted."""
+        backend = MagicMock()
+        backend.post_es.return_value = {
+            "hits": {
+                "total": {"value": 1},
+                "hits": [
+                    {
+                        "_id": "1",
+                        "_index": "logs",
+                        "fields": {
+                            "@timestamp": ["2026-06-12T10:00:00Z"],
+                            "trace.id": ["abc"],
+                            "message": ["ok"],
+                        },
+                    }
+                ],
+            },
+            "took": 2,
+        }
+        client = LogClient(backend=backend)
+        hits = client.search_logs("*")
+        assert len(hits) == 1
+        assert hits[0].trace_id == "abc"
+        assert hits[0].message == "ok"
+        assert hits[0].timestamp_utc == datetime(
+            2026, 6, 12, 10, 0, 0, tzinfo=timezone.utc
+        )
+
     def test_search_logs_empty_hits_returns_empty_list(self) -> None:
         """Empty hits list from backend returns []."""
         backend = MagicMock()

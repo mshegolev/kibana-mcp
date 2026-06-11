@@ -141,6 +141,21 @@ def _parse_timestamp(ts: Any) -> datetime | None:
         return None
 
 
+def _fields_to_source(fields: Any) -> dict[str, Any]:
+    """Convert a top-level hit ``fields`` dict to a source-like dict.
+
+    The ES/OS ``fields`` API wraps every value in a list — unwrap
+    single-element lists so downstream extraction (dotted keys, JSON
+    parsing) sees plain scalars. Non-dict input yields ``{}``.
+    """
+    if not isinstance(fields, dict):
+        return {}
+    return {
+        key: value[0] if isinstance(value, list) and len(value) == 1 else value
+        for key, value in fields.items()
+    }
+
+
 # ── LogHit dataclass ──────────────────────────────────────────────────────────
 
 
@@ -406,7 +421,11 @@ class LogClient:
 
         result: list[LogHit] = []
         for raw_hit in raw_hits:
-            source = raw_hit.get("_source") or {}
+            # Fall back to the top-level `fields` key for fields-only hits
+            # (`_source`-disabled indices / the ES `fields` API).
+            source = raw_hit.get("_source") or _fields_to_source(
+                raw_hit.get("fields")
+            )
             hit_obj = LogHit.from_source(
                 source,
                 trace_id_candidates=self.trace_id_candidates,
