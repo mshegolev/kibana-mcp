@@ -17,21 +17,28 @@ class TestNoFrameworkImports:
     """search_helpers must not pull in FastMCP or mcp server machinery."""
 
     def test_import_search_helpers_no_fastmcp(self) -> None:
-        """Importing search_helpers must not cause FastMCP or _mcp to load."""
-        # Remove any cached module so we get a clean import
+        """Importing search_helpers must not cause FastMCP or _mcp to load.
+
+        We measure which modules are *newly* loaded by the import, by capturing
+        sys.modules before and after. Modules loaded by other tests before this
+        one are not attributed to search_helpers.
+        """
+        # Remove cached search_helpers so we can re-import it cleanly
         for mod in list(sys.modules.keys()):
             if "search_helpers" in mod:
                 del sys.modules[mod]
 
+        before = set(sys.modules.keys())
         importlib.import_module("kibana_mcp.search_helpers")
+        newly_loaded = set(sys.modules.keys()) - before
 
-        # FastMCP / mcp server must NOT have been imported as a side effect
-        for mod in sys.modules:
+        # FastMCP / mcp server must NOT have been imported as a new side effect
+        for mod in newly_loaded:
             assert "fastmcp" not in mod.lower(), (
-                f"FastMCP was imported as side effect: {mod}"
+                f"FastMCP was newly imported as side effect: {mod}"
             )
             assert mod != "kibana_mcp._mcp", (
-                "kibana_mcp._mcp was imported as side effect"
+                "kibana_mcp._mcp was newly imported as side effect"
             )
 
 
