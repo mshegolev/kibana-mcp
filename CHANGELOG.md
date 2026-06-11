@@ -2,6 +2,37 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.0] — 2026-06-11
+
+### Added
+
+- OpenSearch compatibility via `OPENSEARCH_MODE=true` env var
+  (KIB-01, KIB-02). New `os_client.py` module with `OpenSearchClient`
+  duck-type compatible with `KibanaClient` (`get_es` / `post_es`).
+- Optional extra `kibana-mcp[opensearch]` adds `opensearch-py>=2.4`
+  and `boto3>=1.26` for SigV4 auth support.
+- Three auth modes: SigV4 (AWS_REGION), Bearer token (KIBANA_API_KEY),
+  HTTP Basic (KIBANA_USERNAME + KIBANA_PASSWORD), or anonymous.
+  Auto-detected by priority; forced via `OPENSEARCH_AUTH` env var
+  (`sigv4` | `basic` | `token`).
+- `OPENSEARCH_URL` required when `OPENSEARCH_MODE=true`; raises
+  `ConfigError` with actionable hint if unset or if `opensearch-py`
+  not installed.
+- SSL verification reuses existing `KIBANA_SSL_VERIFY` env var.
+
+### Changed
+
+- `_mcp.get_client()` now selects backend by `OPENSEARCH_MODE`; existing
+  ES/Kibana behavior unchanged when env var is absent or false.
+
+### Notes
+
+- Kibana dashboard tools (`kibana_list_dashboards`, `kibana_get_dashboard`)
+  continue to use the Kibana REST path regardless of `OPENSEARCH_MODE`.
+- Query DSL is shared between backends; no forked query module.
+- Bearer token auth uses opensearch-py `headers` kwarg (not `http_auth`);
+  `http_auth` silently drops a bare string, causing 401 at runtime.
+
 ## [0.1.0] — 2026-04-18
 
 ### Added
