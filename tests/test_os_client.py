@@ -202,6 +202,9 @@ class TestOpenSearchClientInit:
             OpenSearchClient()
             _, kwargs = mock_os_cls.call_args
             assert kwargs.get("headers", {}).get("Authorization") == "Bearer test-key"
+            # Negative half of the locked decision: the token must NOT also be
+            # wired via http_auth (the documented silent-401 failure mode).
+            assert "http_auth" not in kwargs
 
     def test_auto_detect_basic_when_username_password_set(
         self, monkeypatch: pytest.MonkeyPatch
@@ -403,6 +406,9 @@ class TestOpenSearchClientInit:
             OpenSearchClient()
             _, kwargs = mock_os_cls.call_args
             assert kwargs.get("headers", {}).get("Authorization") == "Bearer mykey"
+            # Negative half of the locked decision: the token must NOT also be
+            # wired via http_auth (the documented silent-401 failure mode).
+            assert "http_auth" not in kwargs
 
     def test_forced_token_mode_missing_key_raises(
         self, monkeypatch: pytest.MonkeyPatch
@@ -607,7 +613,7 @@ class TestOpenSearchClientLiveIntegration:
         not os.environ.get("OPENSEARCH_TEST_URL"),
         reason="OPENSEARCH_TEST_URL not set — skipping live integration test",
     )
-    def test_live_integration_search_skipped_when_no_url(self) -> None:
+    def test_live_cat_health_returns_list(self) -> None:
         """When OPENSEARCH_TEST_URL is set: construct real client, call _cat/health."""
         live_url = os.environ["OPENSEARCH_TEST_URL"]
         client = OpenSearchClient(os_url=live_url)
