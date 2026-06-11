@@ -49,6 +49,25 @@ class TestLogHitTimestamp:
         hit = LogHit.from_source(source)
         assert hit.timestamp_utc is None
 
+    def test_timestamp_utc_offset_converted_to_utc(self) -> None:
+        """Non-UTC offset (+03:00) is CONVERTED to UTC, not kept as-is."""
+        source = {"@timestamp": "2026-01-01T12:00:00+03:00"}
+        hit = LogHit.from_source(source)
+        assert hit.timestamp_utc == datetime(
+            2026, 1, 1, 9, 0, 0, tzinfo=timezone.utc
+        )
+        assert hit.timestamp_utc.utcoffset() == timezone.utc.utcoffset(None)
+
+    def test_timestamp_utc_naive_treated_as_utc(self) -> None:
+        """Naive ISO string (no tz) yields an AWARE UTC datetime."""
+        source = {"@timestamp": "2026-01-01T12:00:00"}
+        hit = LogHit.from_source(source)
+        assert hit.timestamp_utc == datetime(
+            2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc
+        )
+        # comparable against aware datetimes — no TypeError
+        assert hit.timestamp_utc < datetime(2027, 1, 1, tzinfo=timezone.utc)
+
     def test_timestamp_utc_epoch_ms_int(self) -> None:
         """Numeric epoch-ms @timestamp (ES epoch_millis) parses, no raise."""
         source = {"@timestamp": 1700000000000}

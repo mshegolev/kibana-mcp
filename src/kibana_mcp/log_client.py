@@ -105,8 +105,9 @@ def _parse_timestamp(ts: Any) -> datetime | None:
 
     Accepts int/float epoch values (epoch-ms vs epoch-s heuristic),
     numeric strings, and ISO-8601 strings (trailing ``Z`` normalised to
-    ``+00:00``). Anything else — None, dicts, lists, garbage strings —
-    yields ``None``. NEVER raises.
+    ``+00:00``). Aware datetimes are converted to UTC; naive ISO strings
+    are treated as UTC. Anything else — None, dicts, lists, garbage
+    strings — yields ``None``. NEVER raises.
     """
     try:
         if isinstance(ts, bool):
@@ -125,7 +126,12 @@ def _parse_timestamp(ts: Any) -> datetime | None:
         adjusted = (
             stripped[:-1] + "+00:00" if stripped.endswith("Z") else stripped
         )
-        return datetime.fromisoformat(adjusted)
+        dt = datetime.fromisoformat(adjusted)
+        if dt.tzinfo is None:
+            # Naive timestamps (common Logstash output) are treated as UTC,
+            # so timestamp_utc is ALWAYS tz-aware and comparable.
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
     except Exception:  # noqa: BLE001 — extraction never raises
         return None
 
