@@ -7,14 +7,12 @@ ES/OS backends without actual HTTP (mocked backend).
 
 from __future__ import annotations
 
-import json
-import os
-import pytest
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
-from kibana_mcp.log_client import LogClient, LogHit
+import pytest
 
+from kibana_mcp.log_client import LogClient, LogHit
 
 # ── TestLogHitTimestamp ───────────────────────────────────────────────────────
 
