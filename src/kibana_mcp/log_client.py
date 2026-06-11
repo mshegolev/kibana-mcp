@@ -190,6 +190,32 @@ class LogHit:
     fields: dict[str, Any] = field(default_factory=dict)
     raw: dict[str, Any] = field(default_factory=dict)
 
+    def __repr__(self) -> str:
+        """Summarise payload fields instead of dumping them.
+
+        ``request_json``/``response_json``/``fields``/``raw`` may carry
+        full log documents (Authorization headers, tokens, PII) — logging
+        or printing a LogHit must not leak them.
+        """
+
+        def _summary(d: dict[str, Any] | None) -> str:
+            return "None" if d is None else f"<dict: {len(d)} keys>"
+
+        message = self.message
+        if message is not None and len(message) > 80:
+            message = message[:77] + "..."
+        return (
+            f"LogHit(timestamp_utc={self.timestamp_utc!r}, "
+            f"trace_id={self.trace_id!r}, "
+            f"service_name={self.service_name!r}, "
+            f"level={self.level!r}, "
+            f"message={message!r}, "
+            f"request_json={_summary(self.request_json)}, "
+            f"response_json={_summary(self.response_json)}, "
+            f"fields=<dict: {len(self.fields)} keys>, "
+            f"raw=<dict: {len(self.raw)} keys>)"
+        )
+
     @classmethod
     def from_source(
         cls,

@@ -352,6 +352,32 @@ class TestResponseJsonExtraction:
         assert hit.response_json == {"code": 200}
 
 
+# ── TestLogHitRepr ────────────────────────────────────────────────────────────
+
+
+class TestLogHitRepr:
+    """repr/str must not dump payload dicts (tokens / PII hardening)."""
+
+    def test_repr_does_not_leak_payloads(self) -> None:
+        """Secrets in request_json/fields/raw never appear in repr or str."""
+        secret = "Bearer super-secret-token"
+        source = {
+            "trace.id": "abc",
+            "request": {"headers": {"Authorization": secret}},
+        }
+        hit = LogHit.from_source(source, raw_hit={"_source": source})
+        for rendered in (repr(hit), str(hit)):
+            assert secret not in rendered
+            assert "trace_id='abc'" in rendered
+            assert "<dict:" in rendered
+
+    def test_repr_truncates_long_message(self) -> None:
+        """Messages longer than 80 chars are truncated in repr."""
+        hit = LogHit.from_source({"message": "x" * 500})
+        assert len(repr(hit)) < 400
+        assert "..." in repr(hit)
+
+
 # ── TestSearchLogs ────────────────────────────────────────────────────────────
 
 
