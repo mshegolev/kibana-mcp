@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
@@ -126,6 +127,9 @@ def _parse_timestamp(ts: Any) -> datetime | None:
         adjusted = (
             stripped[:-1] + "+00:00" if stripped.endswith("Z") else stripped
         )
+        # ES date_nanos / OTel shippers emit up to 9 fractional digits;
+        # fromisoformat rejects more than 6 — truncate to microseconds.
+        adjusted = re.sub(r"(\.\d{6})\d+", r"\1", adjusted)
         dt = datetime.fromisoformat(adjusted)
         if dt.tzinfo is None:
             # Naive timestamps (common Logstash output) are treated as UTC,

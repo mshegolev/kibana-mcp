@@ -49,6 +49,14 @@ class TestLogHitTimestamp:
         hit = LogHit.from_source(source)
         assert hit.timestamp_utc is None
 
+    def test_timestamp_utc_nanosecond_precision(self) -> None:
+        """9-digit fractional seconds (ES date_nanos) parse, truncated to us."""
+        source = {"@timestamp": "2026-01-01T12:00:00.123456789Z"}
+        hit = LogHit.from_source(source)
+        assert hit.timestamp_utc == datetime(
+            2026, 1, 1, 12, 0, 0, 123456, tzinfo=timezone.utc
+        )
+
     def test_timestamp_utc_offset_converted_to_utc(self) -> None:
         """Non-UTC offset (+03:00) is CONVERTED to UTC, not kept as-is."""
         source = {"@timestamp": "2026-01-01T12:00:00+03:00"}
