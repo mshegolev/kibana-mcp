@@ -64,11 +64,13 @@ def _extract_json_field(
 ) -> dict[str, Any] | None:
     """Extract a JSON field from source, trying each key in order.
 
-    For the first non-None value found:
+    For each candidate key with a non-None value:
     - dict → returned as-is
-    - str  → parsed with json.loads; None on JSONDecodeError
+    - str  → parsed with json.loads; returned if it parses to a dict
 
-    Returns None if all keys are absent. NEVER raises any exception.
+    A non-JSON value (e.g. a plain-text ``request`` line) does NOT abort
+    the scan — remaining candidates are still consulted. Returns None
+    only after all keys are exhausted. NEVER raises any exception.
     """
     try:
         for key in keys:
@@ -82,9 +84,8 @@ def _extract_json_field(
                     parsed = json.loads(value)
                     if isinstance(parsed, dict):
                         return parsed
-                    return None
                 except json.JSONDecodeError:
-                    return None
+                    pass  # plain text — try the next candidate
         return None
     except Exception:  # noqa: BLE001
         return None

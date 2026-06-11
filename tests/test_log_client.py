@@ -258,6 +258,24 @@ class TestRequestJsonExtraction:
         hit = LogHit.from_source(source)
         assert hit.request_json == {"x": 2}
 
+    def test_request_json_plain_text_request_falls_through_to_body(self) -> None:
+        """Plain-text 'request' does not suppress JSON in later candidate."""
+        source = {
+            "request": "GET /api/v1/orders",
+            "http": {"request": {"body": {"content": '{"a": 1}'}}},
+        }
+        hit = LogHit.from_source(source)
+        assert hit.request_json == {"a": 1}
+
+    def test_request_json_non_dict_json_falls_through(self) -> None:
+        """JSON that parses to a non-dict (list) does not stop the scan."""
+        source = {
+            "request": "[1, 2, 3]",
+            "http.request.body.content": '{"b": 2}',
+        }
+        hit = LogHit.from_source(source)
+        assert hit.request_json == {"b": 2}
+
     def test_request_json_absent_returns_none(self) -> None:
         """No request field gives request_json == None."""
         source = {"message": "no request"}
