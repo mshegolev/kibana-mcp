@@ -244,6 +244,53 @@ class TestOpenSearchClientInit:
             assert "http_auth" not in kwargs
             assert "Authorization" not in kwargs.get("headers", {})
 
+    def test_ssl_kwargs_consistent_across_branches(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """KIBANA_SSL_VERIFY=false → verify_certs=False AND ssl_show_warn=False
+        (warning-suppression parity with KibanaClient); no redundant use_ssl."""
+        monkeypatch.setenv("OPENSEARCH_URL", "https://os.example.com")
+        monkeypatch.setenv("KIBANA_SSL_VERIFY", "false")
+        monkeypatch.delenv("AWS_REGION", raising=False)
+        monkeypatch.delenv("KIBANA_USERNAME", raising=False)
+        monkeypatch.delenv("KIBANA_PASSWORD", raising=False)
+        monkeypatch.delenv("OPENSEARCH_AUTH", raising=False)
+
+        mock_client = MagicMock()
+        for api_key_env in (None, "k"):  # anonymous and token branches
+            if api_key_env is None:
+                monkeypatch.delenv("KIBANA_API_KEY", raising=False)
+            else:
+                monkeypatch.setenv("KIBANA_API_KEY", api_key_env)
+            with patch(
+                "kibana_mcp.os_client.OpenSearch", return_value=mock_client
+            ) as mock_os_cls:
+                OpenSearchClient()
+                _, kwargs = mock_os_cls.call_args
+                assert kwargs.get("verify_certs") is False
+                assert kwargs.get("ssl_show_warn") is False
+                assert "use_ssl" not in kwargs
+
+    def test_ssl_show_warn_true_when_verify_enabled(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Default (verify on) → ssl_show_warn stays True."""
+        monkeypatch.setenv("OPENSEARCH_URL", "https://os.example.com")
+        monkeypatch.delenv("KIBANA_SSL_VERIFY", raising=False)
+        monkeypatch.delenv("AWS_REGION", raising=False)
+        monkeypatch.delenv("KIBANA_API_KEY", raising=False)
+        monkeypatch.delenv("KIBANA_USERNAME", raising=False)
+        monkeypatch.delenv("KIBANA_PASSWORD", raising=False)
+        monkeypatch.delenv("OPENSEARCH_AUTH", raising=False)
+
+        with patch(
+            "kibana_mcp.os_client.OpenSearch", return_value=MagicMock()
+        ) as mock_os_cls:
+            OpenSearchClient()
+            _, kwargs = mock_os_cls.call_args
+            assert kwargs.get("verify_certs") is True
+            assert kwargs.get("ssl_show_warn") is True
+
     def test_timeout_30s_passed_to_constructor(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:

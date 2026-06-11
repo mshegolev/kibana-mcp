@@ -155,6 +155,18 @@ class OpenSearchClient:
         # (dashboard tools keep the Kibana REST path even in OS mode).
         self._kibana: Any | None = None
 
+        # Common kwargs shared by every auth branch. The scheme is parsed
+        # from the URL string in `hosts` by opensearch-py, so an explicit
+        # `use_ssl` kwarg is redundant. ssl_show_warn=False when verification
+        # is disabled mirrors KibanaClient's InsecureRequestWarning
+        # suppression (no TLS warning spam in insecure mode).
+        common_kwargs: dict[str, Any] = {
+            "hosts": [self.os_url],
+            "verify_certs": self.ssl_verify,
+            "ssl_show_warn": self.ssl_verify,
+            "timeout": 30,
+        }
+
         # Resolve auth strategy and build the OpenSearch client in one pass.
         # Each auth mode calls OpenSearch() once with the correct kwargs.
         # Bearer tokens MUST be passed via headers={"Authorization": "Bearer <key>"}
@@ -166,11 +178,7 @@ class OpenSearchClient:
                     "OPENSEARCH_AUTH=sigv4 requires AWS_REGION env var to be set"
                 )
             self._client = OpenSearch(
-                hosts=[self.os_url],
-                http_auth=self._build_sigv4_auth(),
-                verify_certs=self.ssl_verify,
-                timeout=30,
-                use_ssl=self.os_url.startswith("https"),
+                http_auth=self._build_sigv4_auth(), **common_kwargs
             )
         elif auth_mode == "basic":
             if not self.username or not self.password:
@@ -179,10 +187,7 @@ class OpenSearchClient:
                     "KIBANA_PASSWORD env vars"
                 )
             self._client = OpenSearch(
-                hosts=[self.os_url],
-                http_auth=(self.username, self.password),
-                verify_certs=self.ssl_verify,
-                timeout=30,
+                http_auth=(self.username, self.password), **common_kwargs
             )
         elif auth_mode == "token":
             if not self.api_key:
@@ -190,41 +195,26 @@ class OpenSearchClient:
                     "OPENSEARCH_AUTH=token requires KIBANA_API_KEY env var"
                 )
             self._client = OpenSearch(
-                hosts=[self.os_url],
                 headers={"Authorization": f"Bearer {self.api_key}"},
-                verify_certs=self.ssl_verify,
-                timeout=30,
+                **common_kwargs,
             )
         elif auth_mode == "":
             # Auto-detect: AWS_REGION → SigV4; api_key → Bearer; basic; else anon
             if self.aws_region:
                 self._client = OpenSearch(
-                    hosts=[self.os_url],
-                    http_auth=self._build_sigv4_auth(),
-                    verify_certs=self.ssl_verify,
-                    timeout=30,
-                    use_ssl=self.os_url.startswith("https"),
+                    http_auth=self._build_sigv4_auth(), **common_kwargs
                 )
             elif self.api_key:
                 self._client = OpenSearch(
-                    hosts=[self.os_url],
                     headers={"Authorization": f"Bearer {self.api_key}"},
-                    verify_certs=self.ssl_verify,
-                    timeout=30,
+                    **common_kwargs,
                 )
             elif self.username and self.password:
                 self._client = OpenSearch(
-                    hosts=[self.os_url],
-                    http_auth=(self.username, self.password),
-                    verify_certs=self.ssl_verify,
-                    timeout=30,
+                    http_auth=(self.username, self.password), **common_kwargs
                 )
             else:
-                self._client = OpenSearch(
-                    hosts=[self.os_url],
-                    verify_certs=self.ssl_verify,
-                    timeout=30,
-                )
+                self._client = OpenSearch(**common_kwargs)
         else:
             raise ConfigError(
                 f"OPENSEARCH_AUTH must be 'sigv4', 'basic', 'token', or unset "
