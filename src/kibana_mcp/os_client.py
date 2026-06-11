@@ -249,17 +249,6 @@ class OpenSearchClient:
 
         return AWSV4SignerAuth(credentials, self.aws_region, "es")
 
-    def _build_bearer_auth(self) -> str:
-        """Return the raw API key (no prefix).
-
-        NOTE: The caller is responsible for passing this as
-        ``headers={"Authorization": f"Bearer {self._build_bearer_auth()}"}``
-        to the OpenSearch() constructor. Do NOT pass it via ``http_auth`` —
-        opensearch-py only accepts tuple or AWSV4SignerAuth there; a bare
-        string is silently dropped.
-        """
-        return self.api_key
-
     # ── Duck-type methods (same signatures as KibanaClient) ─────────────────
 
     def get_es(self, path: str, *, params: dict[str, Any] | None = None) -> Any:
