@@ -356,16 +356,29 @@ class LogClient:
             time_from: Lower time bound — ``datetime``, ISO-8601 string, or
                 ``None`` (unbounded).
             time_to: Upper time bound — same semantics as ``time_from``.
-            size: Number of hits to return (default 100).
+            size: Number of hits to return, 1-10000 (default 100).
             sort: Sort order ``"asc"`` or ``"desc"`` (default ``"asc"``).
 
         Returns:
             List of :class:`LogHit` instances; empty list when no hits.
 
         Raises:
-            ValueError: If ``index`` contains injection characters.
+            ValueError: If ``index`` contains injection characters, ``sort``
+                is not ``"asc"``/``"desc"``, or ``size`` is outside 1-10000.
             Exception: Backend exceptions are re-raised as-is.
         """
+        # Parameter validation — actionable ValueError instead of opaque
+        # ES 400, mirroring the MCP tool path (kibana_search_logs).
+        if sort not in ("asc", "desc"):
+            raise ValueError(f"sort must be 'asc' or 'desc', got {sort!r}")
+        if not isinstance(size, int) or isinstance(size, bool):
+            raise ValueError(f"size must be an int, got {size!r}")
+        if not 1 <= size <= 10000:
+            raise ValueError(
+                f"size must be between 1 and 10000 (ES result-window cap), "
+                f"got {size}"
+            )
+
         # Security gate: validate index pattern before path interpolation.
         # Use the cleaned (whitespace-stripped) return value for the path.
         index = _validate_index_pattern(index, "index")

@@ -373,6 +373,23 @@ class TestSearchLogs:
         with pytest.raises(ValueError):
             client.search_logs("*", index="logs/_delete?")
 
+    def test_search_logs_invalid_sort_raises(self) -> None:
+        """sort outside {'asc','desc'} raises ValueError before backend call."""
+        backend = self._make_backend()
+        client = LogClient(backend=backend)
+        with pytest.raises(ValueError, match="sort"):
+            client.search_logs("*", sort="ascending")
+        backend.post_es.assert_not_called()
+
+    @pytest.mark.parametrize("bad_size", [0, -5, 10001])
+    def test_search_logs_invalid_size_raises(self, bad_size: int) -> None:
+        """size outside 1..10000 raises ValueError before backend call."""
+        backend = self._make_backend()
+        client = LogClient(backend=backend)
+        with pytest.raises(ValueError, match="size"):
+            client.search_logs("*", size=bad_size)
+        backend.post_es.assert_not_called()
+
     def test_search_logs_with_datetime_time_from(self) -> None:
         """time_from as datetime object is converted to ISO string."""
         backend = self._make_backend()
