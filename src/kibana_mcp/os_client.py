@@ -229,8 +229,8 @@ class OpenSearchClient:
         """
         if AWSV4SignerAuth is None:
             raise ConfigError(
-                "boto3 is not installed. "
-                "Install it with: pip install 'kibana-mcp[opensearch]'"
+                "opensearchpy.AWSV4SignerAuth is unavailable — upgrade "
+                "opensearch-py: pip install 'kibana-mcp[opensearch]'"
             )
         try:
             import boto3
