@@ -181,6 +181,42 @@ class TestLogHitTraceId:
         hit = LogHit.from_source(source)
         assert hit.trace_id == "first"
 
+    def test_trace_id_numeric_scalar_coerced_to_str(self) -> None:
+        """Numeric trace value is coerced to str."""
+        source = {"trace.id": 12345}
+        hit = LogHit.from_source(source)
+        assert hit.trace_id == "12345"
+
+    def test_trace_id_dict_value_skipped(self) -> None:
+        """Non-scalar (dict) trace value is skipped, next candidate wins."""
+        source = {"trace.id": {"junk": True}, "traceId": "real"}
+        hit = LogHit.from_source(source)
+        assert hit.trace_id == "real"
+
+    def test_trace_id_empty_string_falls_through(self) -> None:
+        """Empty-string candidate is treated as absent."""
+        source = {"trace.id": "", "traceId": "next"}
+        hit = LogHit.from_source(source)
+        assert hit.trace_id == "next"
+
+    def test_level_dict_value_is_none(self) -> None:
+        """Non-scalar level (dict) yields None, not the dict itself."""
+        source = {"level": {"name": "ERROR"}}
+        hit = LogHit.from_source(source)
+        assert hit.level is None
+
+    def test_level_int_coerced_to_str(self) -> None:
+        """Numeric level (syslog severity) is coerced to str."""
+        source = {"level": 3}
+        hit = LogHit.from_source(source)
+        assert hit.level == "3"
+
+    def test_message_dict_value_is_none(self) -> None:
+        """Non-scalar message (dict) yields None."""
+        source = {"message": {"text": "hi"}}
+        hit = LogHit.from_source(source)
+        assert hit.message is None
+
     def test_trace_id_custom_candidates_stored_on_client(self) -> None:
         """Custom trace_id_candidates are stored on LogClient instance."""
         mock_backend = MagicMock()

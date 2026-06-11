@@ -141,6 +141,19 @@ def _parse_timestamp(ts: Any) -> datetime | None:
         return None
 
 
+def _coerce_scalar(val: Any) -> str | None:
+    """Coerce a source value to a non-empty string, or None.
+
+    Non-scalar values (dict/list) and empty strings yield ``None`` so
+    candidate loops fall through to the next candidate instead of
+    capturing junk like ``str({'name': 'ERROR'})`` or ``""``.
+    """
+    if val is None or isinstance(val, dict | list):
+        return None
+    text = val if isinstance(val, str) else str(val)
+    return text or None
+
+
 def _fields_to_source(fields: Any) -> dict[str, Any]:
     """Convert a top-level hit ``fields`` dict to a source-like dict.
 
@@ -241,31 +254,31 @@ class LogHit:
         # timestamp_utc — _parse_timestamp handles any input type, incl. None
         timestamp_utc = _parse_timestamp(source.get(time_field))
 
-        # trace_id — first non-None candidate wins
+        # trace_id — first scalar non-empty candidate wins
         trace_id: str | None = None
         for cand in trace_candidates:
-            val = _resolve_dotted(source, cand)
-            if val is not None:
-                trace_id = str(val)
+            coerced = _coerce_scalar(_resolve_dotted(source, cand))
+            if coerced is not None:
+                trace_id = coerced
                 break
 
-        # service_name — first non-None candidate wins
+        # service_name — first scalar non-empty candidate wins
         service_name: str | None = None
         for cand in service_candidates:
-            val = _resolve_dotted(source, cand)
-            if val is not None:
-                service_name = str(val)
+            coerced = _coerce_scalar(_resolve_dotted(source, cand))
+            if coerced is not None:
+                service_name = coerced
                 break
 
-        # level
+        # level — coerced to str; non-scalar values are skipped
         level = (
-            source.get("level")
-            or _resolve_dotted(source, "log.level")
+            _coerce_scalar(source.get("level"))
+            or _coerce_scalar(_resolve_dotted(source, "log.level"))
             or None
         )
 
-        # message
-        message = source.get("message") or None
+        # message — coerced to str; non-scalar values yield None
+        message = _coerce_scalar(source.get("message"))
 
         # request_json / response_json — tolerant extraction
         request_json = _extract_json_field(
