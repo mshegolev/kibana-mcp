@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import os
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from kibana_mcp.client import _parse_bool
@@ -89,16 +89,44 @@ def _extract_json_field(
         return None
 
 
-def _parse_timestamp(ts: str) -> datetime | None:
-    """Parse an ISO-8601 timestamp string to a UTC-aware datetime.
+def _epoch_to_utc(value: float) -> datetime | None:
+    """Convert an epoch number to a UTC-aware datetime.
 
-    Replaces trailing 'Z' with '+00:00' before parsing. Returns None on
-    ValueError (malformed input).
+    Values with magnitude >= 1e11 are interpreted as epoch-milliseconds
+    (ES ``epoch_millis``); smaller magnitudes as epoch-seconds.
+    """
+    if abs(value) >= 1e11:
+        value = value / 1000.0
+    return datetime.fromtimestamp(value, tz=timezone.utc)
+
+
+def _parse_timestamp(ts: Any) -> datetime | None:
+    """Parse a timestamp of ANY input type to a UTC-aware datetime.
+
+    Accepts int/float epoch values (epoch-ms vs epoch-s heuristic),
+    numeric strings, and ISO-8601 strings (trailing ``Z`` normalised to
+    ``+00:00``). Anything else — None, dicts, lists, garbage strings —
+    yields ``None``. NEVER raises.
     """
     try:
-        adjusted = ts.rstrip("Z") + "+00:00" if ts.endswith("Z") else ts
+        if isinstance(ts, bool):
+            return None
+        if isinstance(ts, int | float):
+            return _epoch_to_utc(float(ts))
+        if not isinstance(ts, str):
+            return None
+        stripped = ts.strip()
+        if not stripped:
+            return None
+        try:
+            return _epoch_to_utc(float(stripped))
+        except ValueError:
+            pass  # not a numeric string — try ISO-8601
+        adjusted = (
+            stripped[:-1] + "+00:00" if stripped.endswith("Z") else stripped
+        )
         return datetime.fromisoformat(adjusted)
-    except ValueError:
+    except Exception:  # noqa: BLE001 — extraction never raises
         return None
 
 
@@ -150,6 +178,33 @@ class LogHit:
         Returns:
             A fully-populated :class:`LogHit` instance.
         """
+        try:
+            return cls._from_source_unsafe(
+                source,
+                time_field=time_field,
+                trace_id_candidates=trace_id_candidates,
+                service_name_candidates=service_name_candidates,
+                raw_hit=raw_hit,
+            )
+        except Exception:  # noqa: BLE001 — extraction never raises
+            # Defense in depth: one malformed hit must never abort
+            # LogClient.search_logs() — degrade to an empty-but-valid LogHit.
+            return cls(
+                fields=source if isinstance(source, dict) else {},
+                raw=raw_hit if isinstance(raw_hit, dict) else {},
+            )
+
+    @classmethod
+    def _from_source_unsafe(
+        cls,
+        source: dict[str, Any],
+        *,
+        time_field: str = "@timestamp",
+        trace_id_candidates: list[str] | None = None,
+        service_name_candidates: list[str] | None = None,
+        raw_hit: dict[str, Any] | None = None,
+    ) -> LogHit:
+        """Extraction body for :meth:`from_source` — may raise on bad input."""
         trace_candidates = (
             trace_id_candidates or _DEFAULT_TRACE_ID_CANDIDATES
         )
@@ -157,9 +212,8 @@ class LogHit:
             service_name_candidates or _DEFAULT_SERVICE_NAME_CANDIDATES
         )
 
-        # timestamp_utc
-        ts_str = source.get(time_field)
-        timestamp_utc = _parse_timestamp(ts_str) if ts_str else None
+        # timestamp_utc — _parse_timestamp handles any input type, incl. None
+        timestamp_utc = _parse_timestamp(source.get(time_field))
 
         # trace_id — first non-None candidate wins
         trace_id: str | None = None

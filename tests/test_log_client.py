@@ -49,6 +49,68 @@ class TestLogHitTimestamp:
         hit = LogHit.from_source(source)
         assert hit.timestamp_utc is None
 
+    def test_timestamp_utc_epoch_ms_int(self) -> None:
+        """Numeric epoch-ms @timestamp (ES epoch_millis) parses, no raise."""
+        source = {"@timestamp": 1700000000000}
+        hit = LogHit.from_source(source)
+        assert hit.timestamp_utc == datetime(
+            2023, 11, 14, 22, 13, 20, tzinfo=timezone.utc
+        )
+
+    def test_timestamp_utc_epoch_seconds_int(self) -> None:
+        """Numeric epoch-seconds @timestamp (< 1e11) parses as seconds."""
+        source = {"@timestamp": 1700000000}
+        hit = LogHit.from_source(source)
+        assert hit.timestamp_utc == datetime(
+            2023, 11, 14, 22, 13, 20, tzinfo=timezone.utc
+        )
+
+    def test_timestamp_utc_epoch_ms_float(self) -> None:
+        """Float epoch-ms @timestamp parses as UTC-aware datetime."""
+        source = {"@timestamp": 1700000000000.0}
+        hit = LogHit.from_source(source)
+        assert hit.timestamp_utc is not None
+        assert hit.timestamp_utc.tzinfo == timezone.utc
+        assert hit.timestamp_utc.year == 2023
+
+    def test_timestamp_utc_numeric_string_epoch_ms(self) -> None:
+        """Numeric-string epoch-ms @timestamp parses as epoch."""
+        source = {"@timestamp": "1700000000000"}
+        hit = LogHit.from_source(source)
+        assert hit.timestamp_utc == datetime(
+            2023, 11, 14, 22, 13, 20, tzinfo=timezone.utc
+        )
+
+    def test_timestamp_utc_dict_is_none(self) -> None:
+        """dict @timestamp gives None, no exception raised."""
+        source = {"@timestamp": {"nested": "value"}}
+        hit = LogHit.from_source(source)
+        assert hit.timestamp_utc is None
+
+    def test_timestamp_utc_list_is_none(self) -> None:
+        """list @timestamp gives None, no exception raised."""
+        source = {"@timestamp": ["2026-06-12T10:00:00Z"]}
+        hit = LogHit.from_source(source)
+        assert hit.timestamp_utc is None
+
+    def test_timestamp_utc_bool_is_none(self) -> None:
+        """bool @timestamp gives None (not coerced to epoch 0/1)."""
+        source = {"@timestamp": True}
+        hit = LogHit.from_source(source)
+        assert hit.timestamp_utc is None
+
+    def test_timestamp_utc_garbage_string_is_none(self) -> None:
+        """Arbitrary garbage string gives None, no exception raised."""
+        source = {"@timestamp": "🔥🔥🔥 totally not a timestamp 🔥🔥🔥"}
+        hit = LogHit.from_source(source)
+        assert hit.timestamp_utc is None
+
+    def test_timestamp_utc_overflow_epoch_is_none(self) -> None:
+        """Out-of-range epoch value gives None, no OverflowError."""
+        source = {"@timestamp": 1e30}
+        hit = LogHit.from_source(source)
+        assert hit.timestamp_utc is None
+
 
 # ── TestLogHitTraceId ─────────────────────────────────────────────────────────
 
