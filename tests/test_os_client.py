@@ -11,12 +11,12 @@ from __future__ import annotations
 
 import os
 import sys
-
-import pytest
 from unittest.mock import MagicMock, patch
 
-from kibana_mcp.os_client import OpenSearchClient, _parse_bool, _validate_url
+import pytest
+
 from kibana_mcp.errors import ConfigError
+from kibana_mcp.os_client import OpenSearchClient, _parse_bool, _validate_url
 
 
 def _make_boto3_mock() -> MagicMock:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import threading
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -10,7 +11,7 @@ from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
-from kibana_mcp.client import KibanaClient
+from kibana_mcp.client import KibanaClient, _parse_bool
 
 logger = logging.getLogger(__name__)
 
@@ -55,12 +56,10 @@ def get_client() -> KibanaClient | Any:
     if _client is None:
         with _client_lock:
             if _client is None:  # double-checked locking
-                from kibana_mcp.client import KibanaClient, _parse_bool  # noqa: PLC0415
                 from kibana_mcp.os_client import OpenSearchClient  # noqa: PLC0415
-                import os as _os  # noqa: PLC0415
 
                 opensearch_mode = _parse_bool(
-                    _os.environ.get("OPENSEARCH_MODE"), default=False
+                    os.environ.get("OPENSEARCH_MODE"), default=False
                 )
 
                 if opensearch_mode:
