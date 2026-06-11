@@ -244,6 +244,35 @@ class TestOpenSearchClientInit:
             assert "http_auth" not in kwargs
             assert "Authorization" not in kwargs.get("headers", {})
 
+    def test_timeout_30s_passed_to_constructor(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Parity with KibanaClient: every request uses a 30 s timeout
+        (opensearch-py's default is 10 s)."""
+        monkeypatch.setenv("OPENSEARCH_URL", "https://os.example.com")
+        monkeypatch.delenv("AWS_REGION", raising=False)
+        monkeypatch.delenv("KIBANA_USERNAME", raising=False)
+        monkeypatch.delenv("KIBANA_PASSWORD", raising=False)
+        monkeypatch.delenv("OPENSEARCH_AUTH", raising=False)
+
+        mock_client = MagicMock()
+        # Anonymous branch
+        monkeypatch.delenv("KIBANA_API_KEY", raising=False)
+        with patch(
+            "kibana_mcp.os_client.OpenSearch", return_value=mock_client
+        ) as mock_os_cls:
+            OpenSearchClient()
+            _, kwargs = mock_os_cls.call_args
+            assert kwargs.get("timeout") == 30
+        # Token branch
+        monkeypatch.setenv("KIBANA_API_KEY", "k")
+        with patch(
+            "kibana_mcp.os_client.OpenSearch", return_value=mock_client
+        ) as mock_os_cls:
+            OpenSearchClient()
+            _, kwargs = mock_os_cls.call_args
+            assert kwargs.get("timeout") == 30
+
     # ── Forced OPENSEARCH_AUTH ────────────────────────────────────────────────
 
     def test_forced_sigv4_mode_valid(

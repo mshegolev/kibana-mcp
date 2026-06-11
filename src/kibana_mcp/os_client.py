@@ -169,6 +169,7 @@ class OpenSearchClient:
                 hosts=[self.os_url],
                 http_auth=self._build_sigv4_auth(),
                 verify_certs=self.ssl_verify,
+                timeout=30,
                 use_ssl=self.os_url.startswith("https"),
             )
         elif auth_mode == "basic":
@@ -181,6 +182,7 @@ class OpenSearchClient:
                 hosts=[self.os_url],
                 http_auth=(self.username, self.password),
                 verify_certs=self.ssl_verify,
+                timeout=30,
             )
         elif auth_mode == "token":
             if not self.api_key:
@@ -191,6 +193,7 @@ class OpenSearchClient:
                 hosts=[self.os_url],
                 headers={"Authorization": f"Bearer {self.api_key}"},
                 verify_certs=self.ssl_verify,
+                timeout=30,
             )
         elif auth_mode == "":
             # Auto-detect: AWS_REGION → SigV4; api_key → Bearer; basic; else anon
@@ -199,6 +202,7 @@ class OpenSearchClient:
                     hosts=[self.os_url],
                     http_auth=self._build_sigv4_auth(),
                     verify_certs=self.ssl_verify,
+                    timeout=30,
                     use_ssl=self.os_url.startswith("https"),
                 )
             elif self.api_key:
@@ -206,17 +210,20 @@ class OpenSearchClient:
                     hosts=[self.os_url],
                     headers={"Authorization": f"Bearer {self.api_key}"},
                     verify_certs=self.ssl_verify,
+                    timeout=30,
                 )
             elif self.username and self.password:
                 self._client = OpenSearch(
                     hosts=[self.os_url],
                     http_auth=(self.username, self.password),
                     verify_certs=self.ssl_verify,
+                    timeout=30,
                 )
             else:
                 self._client = OpenSearch(
                     hosts=[self.os_url],
                     verify_certs=self.ssl_verify,
+                    timeout=30,
                 )
         else:
             raise ConfigError(
