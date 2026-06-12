@@ -34,12 +34,8 @@ class TestNoFrameworkImports:
 
         # FastMCP / mcp server must NOT have been imported as a new side effect
         for mod in newly_loaded:
-            assert "fastmcp" not in mod.lower(), (
-                f"FastMCP was newly imported as side effect: {mod}"
-            )
-            assert mod != "kibana_mcp._mcp", (
-                "kibana_mcp._mcp was newly imported as side effect"
-            )
+            assert "fastmcp" not in mod.lower(), f"FastMCP was newly imported as side effect: {mod}"
+            assert mod != "kibana_mcp._mcp", "kibana_mcp._mcp was newly imported as side effect"
 
 
 class TestAllItemsImportable:
@@ -50,6 +46,7 @@ class TestAllItemsImportable:
             _INDEX_FORBIDDEN_CHARS,
             _SYSTEM_INDEX_PREFIXES,
         )
+
         assert isinstance(_SYSTEM_INDEX_PREFIXES, tuple)
         assert isinstance(_INDEX_FORBIDDEN_CHARS, tuple)
 
@@ -64,6 +61,7 @@ class TestAllItemsImportable:
             _size_human,
             _validate_index_pattern,
         )
+
         assert callable(_validate_index_pattern)
         assert callable(_parse_epoch)
         assert callable(_build_search_body)
@@ -79,15 +77,18 @@ class TestValidateIndexPatternBehavior:
 
     def test_valid_pattern_returned_unchanged(self) -> None:
         from kibana_mcp.search_helpers import _validate_index_pattern
+
         assert _validate_index_pattern("logs-*") == "logs-*"
 
     def test_forbidden_slash_raises(self) -> None:
         from kibana_mcp.search_helpers import _validate_index_pattern
+
         with pytest.raises(ValueError):
             _validate_index_pattern("logs/_delete?")
 
     def test_leading_underscore_segment_raises(self) -> None:
         from kibana_mcp.search_helpers import _validate_index_pattern
+
         with pytest.raises(ValueError):
             _validate_index_pattern("_internal")
 
@@ -97,10 +98,12 @@ class TestParseEpochBehavior:
 
     def test_none_returns_none(self) -> None:
         from kibana_mcp.search_helpers import _parse_epoch
+
         assert _parse_epoch(None) is None
 
     def test_iso_string_returned_unchanged(self) -> None:
         from kibana_mcp.search_helpers import _parse_epoch
+
         result = _parse_epoch("2026-01-01T00:00:00Z")
         assert result == "2026-01-01T00:00:00Z"
 
@@ -110,6 +113,7 @@ class TestBuildSearchBodyBehavior:
 
     def test_no_time_range_no_filter_key(self) -> None:
         from kibana_mcp.search_helpers import _build_search_body
+
         body = _build_search_body("level:ERROR", "@timestamp", None, None, 20, "desc")
         must = body["query"]["bool"]["must"]
         assert must[0]["query_string"]["query"] == "level:ERROR"
@@ -117,9 +121,8 @@ class TestBuildSearchBodyBehavior:
 
     def test_time_from_adds_filter(self) -> None:
         from kibana_mcp.search_helpers import _build_search_body
-        body = _build_search_body(
-            "*", "@timestamp", "2026-01-01T00:00:00Z", None, 10, "asc"
-        )
+
+        body = _build_search_body("*", "@timestamp", "2026-01-01T00:00:00Z", None, 10, "asc")
         rng = body["query"]["bool"]["filter"][0]["range"]["@timestamp"]
         assert rng["gte"] == "2026-01-01T00:00:00Z"
 
@@ -129,9 +132,8 @@ class TestBuildAggregationBodyBehavior:
 
     def test_size_zero_and_terms_field(self) -> None:
         from kibana_mcp.search_helpers import _build_aggregation_body
-        body = _build_aggregation_body(
-            "*", "level", "count", None, 10, "@timestamp", None, None
-        )
+
+        body = _build_aggregation_body("*", "level", "count", None, 10, "@timestamp", None, None)
         assert body["size"] == 0
         assert body["aggs"]["group_by"]["terms"]["field"] == "level"
 
@@ -141,6 +143,7 @@ class TestShapeHitBehavior:
 
     def test_timestamp_extracted(self) -> None:
         from kibana_mcp.search_helpers import _shape_hit
+
         raw = {
             "_id": "1",
             "_index": "logs",

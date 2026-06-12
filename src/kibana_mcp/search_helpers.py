@@ -47,9 +47,7 @@ def _validate_index_pattern(value: str, param_name: str = "index") -> str:
     cleaned = value.strip()
     if not cleaned:
         raise ValueError(f"{param_name} must not be empty")
-    if any(ch in cleaned for ch in _INDEX_FORBIDDEN_CHARS) or any(
-        ch.isspace() for ch in cleaned
-    ):
+    if any(ch in cleaned for ch in _INDEX_FORBIDDEN_CHARS) or any(ch.isspace() for ch in cleaned):
         raise ValueError(
             f"{param_name} contains characters not allowed in index names/patterns "
             f"('/', '?', '#', '%', '\\', whitespace): {cleaned!r}"
@@ -57,8 +55,7 @@ def _validate_index_pattern(value: str, param_name: str = "index") -> str:
     for segment in cleaned.split(","):
         if segment.strip().startswith("_"):
             raise ValueError(
-                f"{param_name} segments must not start with '_' "
-                f"(reserved for ES/OpenSearch APIs): {cleaned!r}"
+                f"{param_name} segments must not start with '_' (reserved for ES/OpenSearch APIs): {cleaned!r}"
             )
     return cleaned
 

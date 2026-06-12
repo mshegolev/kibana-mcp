@@ -69,9 +69,7 @@ def _validate_url(url: str, var_name: str = "OPENSEARCH_URL") -> str:
     cleaned = url.strip()
     parsed = urlparse(cleaned)
     if parsed.scheme not in ("http", "https"):
-        raise ConfigError(
-            f"{var_name} must start with http:// or https:// (got: {url!r})"
-        )
+        raise ConfigError(f"{var_name} must start with http:// or https:// (got: {url!r})")
     if not parsed.netloc:
         raise ConfigError(f"{var_name} is missing host (got: {url!r})")
     return cleaned.rstrip("/")
@@ -124,34 +122,21 @@ class OpenSearchClient:
     ) -> None:
         # 1. Validate opensearch-py is installed
         if OpenSearch is None:
-            raise ConfigError(
-                "opensearch-py is not installed. "
-                "Install it with: pip install 'kibana-mcp[opensearch]'"
-            )
+            raise ConfigError("opensearch-py is not installed. Install it with: pip install 'kibana-mcp[opensearch]'")
 
         # 2. Validate OPENSEARCH_URL — no fallback to ELASTICSEARCH_URL
         raw_os_url = os_url if os_url is not None else os.environ.get("OPENSEARCH_URL", "")
         self.os_url = _validate_url(raw_os_url, "OPENSEARCH_URL")
 
         # 3. Read credentials from arg or env
-        self.aws_region = (
-            aws_region if aws_region is not None else os.environ.get("AWS_REGION", "")
-        )
-        self.api_key = (
-            api_key if api_key is not None else os.environ.get("KIBANA_API_KEY", "")
-        )
-        self.username = (
-            username if username is not None else os.environ.get("KIBANA_USERNAME", "")
-        )
-        self.password = (
-            password if password is not None else os.environ.get("KIBANA_PASSWORD", "")
-        )
+        self.aws_region = aws_region if aws_region is not None else os.environ.get("AWS_REGION", "")
+        self.api_key = api_key if api_key is not None else os.environ.get("KIBANA_API_KEY", "")
+        self.username = username if username is not None else os.environ.get("KIBANA_USERNAME", "")
+        self.password = password if password is not None else os.environ.get("KIBANA_PASSWORD", "")
 
         # 4. Read forced auth mode — strip (shell/compose files may add
         # whitespace), consistent with _parse_bool / _validate_url.
-        auth_mode = (
-            auth_mode if auth_mode is not None else os.environ.get("OPENSEARCH_AUTH", "")
-        ).strip().lower()
+        auth_mode = (auth_mode if auth_mode is not None else os.environ.get("OPENSEARCH_AUTH", "")).strip().lower()
 
         # 5. SSL verification — reuse KIBANA_SSL_VERIFY
         if ssl_verify is None:
@@ -181,26 +166,15 @@ class OpenSearchClient:
         # a bare string is silently dropped, causing 401 at runtime.
         if auth_mode == "sigv4":
             if not self.aws_region:
-                raise ConfigError(
-                    "OPENSEARCH_AUTH=sigv4 requires AWS_REGION env var to be set"
-                )
-            self._client = OpenSearch(
-                http_auth=self._build_sigv4_auth(), **common_kwargs
-            )
+                raise ConfigError("OPENSEARCH_AUTH=sigv4 requires AWS_REGION env var to be set")
+            self._client = OpenSearch(http_auth=self._build_sigv4_auth(), **common_kwargs)
         elif auth_mode == "basic":
             if not self.username or not self.password:
-                raise ConfigError(
-                    "OPENSEARCH_AUTH=basic requires KIBANA_USERNAME and "
-                    "KIBANA_PASSWORD env vars"
-                )
-            self._client = OpenSearch(
-                http_auth=(self.username, self.password), **common_kwargs
-            )
+                raise ConfigError("OPENSEARCH_AUTH=basic requires KIBANA_USERNAME and KIBANA_PASSWORD env vars")
+            self._client = OpenSearch(http_auth=(self.username, self.password), **common_kwargs)
         elif auth_mode == "token":
             if not self.api_key:
-                raise ConfigError(
-                    "OPENSEARCH_AUTH=token requires KIBANA_API_KEY env var"
-                )
+                raise ConfigError("OPENSEARCH_AUTH=token requires KIBANA_API_KEY env var")
             self._client = OpenSearch(
                 headers={"Authorization": f"Bearer {self.api_key}"},
                 **common_kwargs,
@@ -208,25 +182,18 @@ class OpenSearchClient:
         elif auth_mode == "":
             # Auto-detect: AWS_REGION → SigV4; api_key → Bearer; basic; else anon
             if self.aws_region:
-                self._client = OpenSearch(
-                    http_auth=self._build_sigv4_auth(), **common_kwargs
-                )
+                self._client = OpenSearch(http_auth=self._build_sigv4_auth(), **common_kwargs)
             elif self.api_key:
                 self._client = OpenSearch(
                     headers={"Authorization": f"Bearer {self.api_key}"},
                     **common_kwargs,
                 )
             elif self.username and self.password:
-                self._client = OpenSearch(
-                    http_auth=(self.username, self.password), **common_kwargs
-                )
+                self._client = OpenSearch(http_auth=(self.username, self.password), **common_kwargs)
             else:
                 self._client = OpenSearch(**common_kwargs)
         else:
-            raise ConfigError(
-                f"OPENSEARCH_AUTH must be 'sigv4', 'basic', 'token', or unset "
-                f"(got: {auth_mode!r})"
-            )
+            raise ConfigError(f"OPENSEARCH_AUTH must be 'sigv4', 'basic', 'token', or unset (got: {auth_mode!r})")
 
     def _build_sigv4_auth(self) -> Any:
         """Build AWSV4SignerAuth using boto3 credential resolution.
@@ -243,8 +210,7 @@ class OpenSearchClient:
             import boto3
         except ImportError as exc:
             raise ConfigError(
-                "boto3 is required for SigV4 auth. "
-                "Install it with: pip install 'kibana-mcp[opensearch]'"
+                "boto3 is required for SigV4 auth. Install it with: pip install 'kibana-mcp[opensearch]'"
             ) from exc
 
         credentials = boto3.Session().get_credentials()

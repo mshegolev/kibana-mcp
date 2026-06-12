@@ -94,10 +94,7 @@ def _handle_opensearch(exc: Exception, action: str) -> str | None:
         return _timeout_message(action)
 
     if "ConnectionError" in mro_names:
-        return (
-            f"Error: could not connect while {action}. "
-            "Check OPENSEARCH_URL, network access, and proxy settings."
-        )
+        return f"Error: could not connect while {action}. Check OPENSEARCH_URL, network access, and proxy settings."
 
     code = getattr(exc, "status_code", None)
     if not isinstance(code, int):

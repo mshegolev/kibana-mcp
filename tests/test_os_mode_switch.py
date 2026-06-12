@@ -53,9 +53,7 @@ def kibana_env(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 class TestOSModeSwitch:
-    def test_opensearch_mode_unset_selects_kibana_client(
-        self, kibana_env: None
-    ) -> None:
+    def test_opensearch_mode_unset_selects_kibana_client(self, kibana_env: None) -> None:
         """OPENSEARCH_MODE unset → get_client() returns KibanaClient."""
         client = get_client()
         assert isinstance(client, KibanaClient)
@@ -68,9 +66,7 @@ class TestOSModeSwitch:
         client = get_client()
         assert isinstance(client, KibanaClient)
 
-    def test_opensearch_mode_true_selects_opensearch_client(
-        self, os_env: None
-    ) -> None:
+    def test_opensearch_mode_true_selects_opensearch_client(self, os_env: None) -> None:
         """OPENSEARCH_MODE=true, OPENSEARCH_URL set, OpenSearch mocked →
         get_client() returns OpenSearchClient."""
         from kibana_mcp.os_client import OpenSearchClient
@@ -80,9 +76,7 @@ class TestOSModeSwitch:
             client = get_client()
         assert isinstance(client, OpenSearchClient)
 
-    def test_opensearch_mode_true_missing_url_raises(
-        self, os_env: None, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_opensearch_mode_true_missing_url_raises(self, os_env: None, monkeypatch: pytest.MonkeyPatch) -> None:
         """OPENSEARCH_MODE=true, OPENSEARCH_URL unset → ConfigError
         mentioning OPENSEARCH_URL."""
         from kibana_mcp.errors import ConfigError
@@ -92,9 +86,7 @@ class TestOSModeSwitch:
             with pytest.raises(ConfigError, match="OPENSEARCH_URL"):
                 get_client()
 
-    def test_opensearch_mode_true_missing_package_raises(
-        self, os_env: None
-    ) -> None:
+    def test_opensearch_mode_true_missing_package_raises(self, os_env: None) -> None:
         """OPENSEARCH_MODE=true, opensearch-py absent → ConfigError
         mentioning opensearch-py."""
         from kibana_mcp.errors import ConfigError
@@ -103,9 +95,7 @@ class TestOSModeSwitch:
             with pytest.raises(ConfigError, match="opensearch-py"):
                 get_client()
 
-    def test_dashboard_tool_in_os_mode_without_kibana_url_is_actionable(
-        self, os_env: None
-    ) -> None:
+    def test_dashboard_tool_in_os_mode_without_kibana_url_is_actionable(self, os_env: None) -> None:
         """OS mode + dashboard tool + no KIBANA_URL → ToolError mentioning
         KIBANA_URL (actionable ConfigError), NOT a raw AttributeError."""
         from mcp.server.fastmcp.exceptions import ToolError
@@ -128,9 +118,7 @@ class TestOSModeSwitch:
         mock_kibana = MagicMock()
         mock_kibana.get_kibana.return_value = {
             "total": 1,
-            "saved_objects": [
-                {"id": "d1", "attributes": {"title": "Ops"}, "updated_at": None}
-            ],
+            "saved_objects": [{"id": "d1", "attributes": {"title": "Ops"}, "updated_at": None}],
         }
         with patch("kibana_mcp.os_client.OpenSearch", return_value=MagicMock()):
             with patch("kibana_mcp.client.KibanaClient", return_value=mock_kibana):

@@ -58,9 +58,7 @@ def get_client() -> KibanaClient | Any:
             if _client is None:  # double-checked locking
                 from kibana_mcp.os_client import OpenSearchClient  # noqa: PLC0415
 
-                opensearch_mode = _parse_bool(
-                    os.environ.get("OPENSEARCH_MODE"), default=False
-                )
+                opensearch_mode = _parse_bool(os.environ.get("OPENSEARCH_MODE"), default=False)
 
                 if opensearch_mode:
                     _client = OpenSearchClient()

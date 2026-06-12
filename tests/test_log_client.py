@@ -53,26 +53,20 @@ class TestLogHitTimestamp:
         """9-digit fractional seconds (ES date_nanos) parse, truncated to us."""
         source = {"@timestamp": "2026-01-01T12:00:00.123456789Z"}
         hit = LogHit.from_source(source)
-        assert hit.timestamp_utc == datetime(
-            2026, 1, 1, 12, 0, 0, 123456, tzinfo=timezone.utc
-        )
+        assert hit.timestamp_utc == datetime(2026, 1, 1, 12, 0, 0, 123456, tzinfo=timezone.utc)
 
     def test_timestamp_utc_offset_converted_to_utc(self) -> None:
         """Non-UTC offset (+03:00) is CONVERTED to UTC, not kept as-is."""
         source = {"@timestamp": "2026-01-01T12:00:00+03:00"}
         hit = LogHit.from_source(source)
-        assert hit.timestamp_utc == datetime(
-            2026, 1, 1, 9, 0, 0, tzinfo=timezone.utc
-        )
+        assert hit.timestamp_utc == datetime(2026, 1, 1, 9, 0, 0, tzinfo=timezone.utc)
         assert hit.timestamp_utc.utcoffset() == timezone.utc.utcoffset(None)
 
     def test_timestamp_utc_naive_treated_as_utc(self) -> None:
         """Naive ISO string (no tz) yields an AWARE UTC datetime."""
         source = {"@timestamp": "2026-01-01T12:00:00"}
         hit = LogHit.from_source(source)
-        assert hit.timestamp_utc == datetime(
-            2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc
-        )
+        assert hit.timestamp_utc == datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
         # comparable against aware datetimes — no TypeError
         assert hit.timestamp_utc < datetime(2027, 1, 1, tzinfo=timezone.utc)
 
@@ -80,17 +74,13 @@ class TestLogHitTimestamp:
         """Numeric epoch-ms @timestamp (ES epoch_millis) parses, no raise."""
         source = {"@timestamp": 1700000000000}
         hit = LogHit.from_source(source)
-        assert hit.timestamp_utc == datetime(
-            2023, 11, 14, 22, 13, 20, tzinfo=timezone.utc
-        )
+        assert hit.timestamp_utc == datetime(2023, 11, 14, 22, 13, 20, tzinfo=timezone.utc)
 
     def test_timestamp_utc_epoch_seconds_int(self) -> None:
         """Numeric epoch-seconds @timestamp (< 1e11) parses as seconds."""
         source = {"@timestamp": 1700000000}
         hit = LogHit.from_source(source)
-        assert hit.timestamp_utc == datetime(
-            2023, 11, 14, 22, 13, 20, tzinfo=timezone.utc
-        )
+        assert hit.timestamp_utc == datetime(2023, 11, 14, 22, 13, 20, tzinfo=timezone.utc)
 
     def test_timestamp_utc_epoch_ms_float(self) -> None:
         """Float epoch-ms @timestamp parses as UTC-aware datetime."""
@@ -104,9 +94,7 @@ class TestLogHitTimestamp:
         """Numeric-string epoch-ms @timestamp parses as epoch."""
         source = {"@timestamp": "1700000000000"}
         hit = LogHit.from_source(source)
-        assert hit.timestamp_utc == datetime(
-            2023, 11, 14, 22, 13, 20, tzinfo=timezone.utc
-        )
+        assert hit.timestamp_utc == datetime(2023, 11, 14, 22, 13, 20, tzinfo=timezone.utc)
 
     def test_timestamp_utc_dict_is_none(self) -> None:
         """dict @timestamp gives None, no exception raised."""
@@ -345,9 +333,7 @@ class TestResponseJsonExtraction:
 
     def test_response_json_http_nested(self) -> None:
         """Nested http.response.body.content path is used as fallback."""
-        source = {
-            "http": {"response": {"body": {"content": '{"code": 200}'}}}
-        }
+        source = {"http": {"response": {"body": {"content": '{"code": 200}'}}}}
         hit = LogHit.from_source(source)
         assert hit.response_json == {"code": 200}
 
@@ -456,10 +442,7 @@ class TestSearchLogs:
         """time_from as datetime lands in the body as range gte ISO string."""
         backend = self._make_backend()
         client = LogClient(backend=backend)
-        client.search_logs(
-            "*", index="logs-*",
-            time_from=datetime(2026, 1, 1, tzinfo=timezone.utc)
-        )
+        client.search_logs("*", index="logs-*", time_from=datetime(2026, 1, 1, tzinfo=timezone.utc))
         backend.post_es.assert_called_once()
         body = backend.post_es.call_args[0][1]
         gte = body["query"]["bool"]["filter"][0]["range"]["@timestamp"]["gte"]
@@ -473,9 +456,7 @@ class TestSearchLogs:
         body = backend.post_es.call_args[0][1]
         assert body["size"] == 42
         assert body["sort"] == [{"@timestamp": "desc"}]
-        assert body["query"]["bool"]["must"] == [
-            {"query_string": {"query": "*"}}
-        ]
+        assert body["query"]["bool"]["must"] == [{"query_string": {"query": "*"}}]
 
     def test_search_logs_custom_trace_candidates_used_in_extraction(
         self,
@@ -498,9 +479,7 @@ class TestSearchLogs:
             },
             "took": 1,
         }
-        client = LogClient(
-            backend=backend, trace_id_candidates=["custom.trace"]
-        )
+        client = LogClient(backend=backend, trace_id_candidates=["custom.trace"])
         hits = client.search_logs("*")
         assert hits[0].trace_id == "tid-777"
 
@@ -529,9 +508,7 @@ class TestSearchLogs:
         assert len(hits) == 1
         assert hits[0].trace_id == "abc"
         assert hits[0].message == "ok"
-        assert hits[0].timestamp_utc == datetime(
-            2026, 6, 12, 10, 0, 0, tzinfo=timezone.utc
-        )
+        assert hits[0].timestamp_utc == datetime(2026, 6, 12, 10, 0, 0, tzinfo=timezone.utc)
 
     def test_search_logs_empty_hits_returns_empty_list(self) -> None:
         """Empty hits list from backend returns []."""
@@ -568,9 +545,7 @@ class TestGetRequestResponseJson:
     def test_returns_extracted_dicts_from_hit(self) -> None:
         """Returns exactly the dicts already extracted in hit."""
         client = LogClient(backend=MagicMock())
-        hit = LogHit.from_source(
-            {"request": '{"method": "GET"}', "response": {"status": 200}}
-        )
+        hit = LogHit.from_source({"request": '{"method": "GET"}', "response": {"status": 200}})
         result = client.get_request_response_json(hit)
         assert result["request"] == {"method": "GET"}
         assert result["response"] == {"status": 200}
@@ -582,30 +557,26 @@ class TestGetRequestResponseJson:
 class TestLogClientFromEnv:
     """Test LogClient.from_env() with patched env and constructors."""
 
-    def test_from_env_kibana_mode_selects_kibana_client(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_from_env_kibana_mode_selects_kibana_client(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """OPENSEARCH_MODE=false → backend is KibanaClient instance."""
         monkeypatch.setenv("OPENSEARCH_MODE", "false")
         monkeypatch.setenv("KIBANA_URL", "https://kibana.example.com")
         from kibana_mcp.client import KibanaClient
+
         client = LogClient.from_env()
         assert isinstance(client._backend, KibanaClient)
 
-    def test_from_env_opensearch_mode_selects_opensearch_client(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_from_env_opensearch_mode_selects_opensearch_client(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """OPENSEARCH_MODE=true → backend is OpenSearchClient instance."""
         monkeypatch.setenv("OPENSEARCH_MODE", "true")
         monkeypatch.setenv("OPENSEARCH_URL", "https://os.example.com")
         from kibana_mcp.os_client import OpenSearchClient
+
         with patch("kibana_mcp.os_client.OpenSearch", return_value=MagicMock()):
             client = LogClient.from_env()
         assert isinstance(client._backend, OpenSearchClient)
 
-    def test_from_env_custom_candidates_passed_through(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_from_env_custom_candidates_passed_through(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Custom candidate lists are stored on LogClient after from_env."""
         monkeypatch.setenv("OPENSEARCH_MODE", "false")
         monkeypatch.setenv("KIBANA_URL", "https://kibana.example.com")

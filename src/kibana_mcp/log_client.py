@@ -59,9 +59,7 @@ def _resolve_dotted(source: dict[str, Any], dotted_key: str) -> Any | None:
     return current
 
 
-def _extract_json_field(
-    source: dict[str, Any], *keys: str
-) -> dict[str, Any] | None:
+def _extract_json_field(source: dict[str, Any], *keys: str) -> dict[str, Any] | None:
     """Extract a JSON field from source, trying each key in order.
 
     For each candidate key with a non-None value:
@@ -125,9 +123,7 @@ def _parse_timestamp(ts: Any) -> datetime | None:
             return _epoch_to_utc(float(stripped))
         except ValueError:
             pass  # not a numeric string — try ISO-8601
-        adjusted = (
-            stripped[:-1] + "+00:00" if stripped.endswith("Z") else stripped
-        )
+        adjusted = stripped[:-1] + "+00:00" if stripped.endswith("Z") else stripped
         # ES date_nanos / OTel shippers emit up to 9 fractional digits;
         # fromisoformat rejects more than 6 — truncate to microseconds.
         adjusted = re.sub(r"(\.\d{6})\d+", r"\1", adjusted)
@@ -163,10 +159,7 @@ def _fields_to_source(fields: Any) -> dict[str, Any]:
     """
     if not isinstance(fields, dict):
         return {}
-    return {
-        key: value[0] if isinstance(value, list) and len(value) == 1 else value
-        for key, value in fields.items()
-    }
+    return {key: value[0] if isinstance(value, list) and len(value) == 1 else value for key, value in fields.items()}
 
 
 # ── LogHit dataclass ──────────────────────────────────────────────────────────
@@ -270,12 +263,8 @@ class LogHit:
         raw_hit: dict[str, Any] | None = None,
     ) -> LogHit:
         """Extraction body for :meth:`from_source` — may raise on bad input."""
-        trace_candidates = (
-            trace_id_candidates or _DEFAULT_TRACE_ID_CANDIDATES
-        )
-        service_candidates = (
-            service_name_candidates or _DEFAULT_SERVICE_NAME_CANDIDATES
-        )
+        trace_candidates = trace_id_candidates or _DEFAULT_TRACE_ID_CANDIDATES
+        service_candidates = service_name_candidates or _DEFAULT_SERVICE_NAME_CANDIDATES
 
         # timestamp_utc — _parse_timestamp handles any input type, incl. None
         timestamp_utc = _parse_timestamp(source.get(time_field))
@@ -297,22 +286,14 @@ class LogHit:
                 break
 
         # level — coerced to str; non-scalar values are skipped
-        level = (
-            _coerce_scalar(source.get("level"))
-            or _coerce_scalar(_resolve_dotted(source, "log.level"))
-            or None
-        )
+        level = _coerce_scalar(source.get("level")) or _coerce_scalar(_resolve_dotted(source, "log.level")) or None
 
         # message — coerced to str; non-scalar values yield None
         message = _coerce_scalar(source.get("message"))
 
         # request_json / response_json — tolerant extraction
-        request_json = _extract_json_field(
-            source, "request", "http.request.body.content"
-        )
-        response_json = _extract_json_field(
-            source, "response", "http.response.body.content"
-        )
+        request_json = _extract_json_field(source, "request", "http.request.body.content")
+        response_json = _extract_json_field(source, "response", "http.response.body.content")
 
         return cls(
             timestamp_utc=timestamp_utc,
@@ -349,12 +330,8 @@ class LogClient:
         service_name_candidates: list[str] | None = None,
     ) -> None:
         self._backend = backend
-        self.trace_id_candidates = (
-            trace_id_candidates or _DEFAULT_TRACE_ID_CANDIDATES
-        )
-        self.service_name_candidates = (
-            service_name_candidates or _DEFAULT_SERVICE_NAME_CANDIDATES
-        )
+        self.trace_id_candidates = trace_id_candidates or _DEFAULT_TRACE_ID_CANDIDATES
+        self.service_name_candidates = service_name_candidates or _DEFAULT_SERVICE_NAME_CANDIDATES
 
     @classmethod
     def from_env(
@@ -374,9 +351,7 @@ class LogClient:
         """
         from kibana_mcp.client import KibanaClient  # noqa: PLC0415
 
-        opensearch_mode = _parse_bool(
-            os.environ.get("OPENSEARCH_MODE"), default=False
-        )
+        opensearch_mode = _parse_bool(os.environ.get("OPENSEARCH_MODE"), default=False)
 
         if opensearch_mode:
             from kibana_mcp.os_client import OpenSearchClient  # noqa: PLC0415
@@ -428,10 +403,7 @@ class LogClient:
         if not isinstance(size, int) or isinstance(size, bool):
             raise ValueError(f"size must be an int, got {size!r}")
         if not 1 <= size <= 10000:
-            raise ValueError(
-                f"size must be between 1 and 10000 (ES result-window cap), "
-                f"got {size}"
-            )
+            raise ValueError(f"size must be between 1 and 10000 (ES result-window cap), got {size}")
 
         # Security gate: validate index pattern before path interpolation.
         # Use the cleaned (whitespace-stripped) return value for the path.
@@ -448,23 +420,17 @@ class LogClient:
         time_from_str = _to_str(time_from)
         time_to_str = _to_str(time_to)
 
-        body = _build_search_body(
-            query, "@timestamp", time_from_str, time_to_str, size, sort
-        )
+        body = _build_search_body(query, "@timestamp", time_from_str, time_to_str, size, sort)
 
         response = self._backend.post_es(f"/{index}/_search", body)
 
-        raw_hits: list[dict[str, Any]] = (
-            (response.get("hits") or {}).get("hits") or []
-        )
+        raw_hits: list[dict[str, Any]] = (response.get("hits") or {}).get("hits") or []
 
         result: list[LogHit] = []
         for raw_hit in raw_hits:
             # Fall back to the top-level `fields` key for fields-only hits
             # (`_source`-disabled indices / the ES `fields` API).
-            source = raw_hit.get("_source") or _fields_to_source(
-                raw_hit.get("fields")
-            )
+            source = raw_hit.get("_source") or _fields_to_source(raw_hit.get("fields"))
             hit_obj = LogHit.from_source(
                 source,
                 trace_id_candidates=self.trace_id_candidates,
@@ -475,9 +441,7 @@ class LogClient:
 
         return result
 
-    def get_request_response_json(
-        self, hit: LogHit
-    ) -> dict[str, dict[str, Any] | None]:
+    def get_request_response_json(self, hit: LogHit) -> dict[str, dict[str, Any] | None]:
         """Return request and response dicts already extracted in a LogHit.
 
         Pure re-read — no re-query to the backend. NEVER raises.

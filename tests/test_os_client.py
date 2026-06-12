@@ -56,16 +56,10 @@ class TestValidateUrl:
     """URL validation helper — adapted for OPENSEARCH_URL var name."""
 
     def test_strips_trailing_slash(self) -> None:
-        assert (
-            _validate_url("https://opensearch.example.com/")
-            == "https://opensearch.example.com"
-        )
+        assert _validate_url("https://opensearch.example.com/") == "https://opensearch.example.com"
 
     def test_strips_whitespace(self) -> None:
-        assert (
-            _validate_url("  https://opensearch.example.com  ")
-            == "https://opensearch.example.com"
-        )
+        assert _validate_url("  https://opensearch.example.com  ") == "https://opensearch.example.com"
 
     def test_http_scheme_allowed(self) -> None:
         assert _validate_url("http://opensearch.local") == "http://opensearch.local"
@@ -96,27 +90,21 @@ class TestOpenSearchClientInit:
 
     # ── Config validation ────────────────────────────────────────────────────
 
-    def test_missing_url_raises_config_error(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_missing_url_raises_config_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """OPENSEARCH_URL unset → ConfigError mentioning OPENSEARCH_URL."""
         monkeypatch.delenv("OPENSEARCH_URL", raising=False)
         with patch("kibana_mcp.os_client.OpenSearch"):
             with pytest.raises(ConfigError, match="OPENSEARCH_URL"):
                 OpenSearchClient()
 
-    def test_missing_opensearch_package_raises(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_missing_opensearch_package_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """OpenSearch = None (package absent) → ConfigError mentioning opensearch-py."""
         monkeypatch.setenv("OPENSEARCH_URL", "https://os.example.com")
         with patch("kibana_mcp.os_client.OpenSearch", None):
             with pytest.raises(ConfigError, match="opensearch-py"):
                 OpenSearchClient()
 
-    def test_ssl_verify_false_from_env(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_ssl_verify_false_from_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """KIBANA_SSL_VERIFY=false → client.ssl_verify is False."""
         monkeypatch.setenv("OPENSEARCH_URL", "https://os.example.com")
         monkeypatch.setenv("KIBANA_SSL_VERIFY", "false")
@@ -131,9 +119,7 @@ class TestOpenSearchClientInit:
             client = OpenSearchClient()
             assert client.ssl_verify is False
 
-    def test_constructor_overrides_take_precedence(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_constructor_overrides_take_precedence(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Constructor kwargs override env vars."""
         monkeypatch.setenv("OPENSEARCH_URL", "https://env.example.com")
         monkeypatch.setenv("KIBANA_API_KEY", "env-key")
@@ -153,9 +139,7 @@ class TestOpenSearchClientInit:
 
     # ── Auto-detect auth ─────────────────────────────────────────────────────
 
-    def test_auto_detect_sigv4_when_aws_region_set(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_auto_detect_sigv4_when_aws_region_set(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """AWS_REGION set → SigV4 auth wired via http_auth kwarg."""
         monkeypatch.setenv("OPENSEARCH_URL", "https://os.example.com")
         monkeypatch.setenv("AWS_REGION", "us-east-1")
@@ -170,18 +154,14 @@ class TestOpenSearchClientInit:
         mock_boto3 = _make_boto3_mock()
         mock_client = MagicMock()
         with patch.dict(sys.modules, {"boto3": mock_boto3}):
-            with patch(
-                "kibana_mcp.os_client.OpenSearch", return_value=mock_client
-            ) as mock_os_cls:
+            with patch("kibana_mcp.os_client.OpenSearch", return_value=mock_client) as mock_os_cls:
                 with patch("kibana_mcp.os_client.AWSV4SignerAuth") as mock_aws_auth:
                     OpenSearchClient()
                     mock_aws_auth.assert_called_once()
                     _, kwargs = mock_os_cls.call_args
                     assert "http_auth" in kwargs
 
-    def test_auto_detect_bearer_token_when_api_key_set(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_auto_detect_bearer_token_when_api_key_set(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """KIBANA_API_KEY set (no AWS_REGION) → headers["Authorization"] == Bearer.
 
         Bearer MUST arrive via the headers kwarg — opensearch-py's http_auth
@@ -196,9 +176,7 @@ class TestOpenSearchClientInit:
         monkeypatch.delenv("OPENSEARCH_AUTH", raising=False)
 
         mock_client = MagicMock()
-        with patch(
-            "kibana_mcp.os_client.OpenSearch", return_value=mock_client
-        ) as mock_os_cls:
+        with patch("kibana_mcp.os_client.OpenSearch", return_value=mock_client) as mock_os_cls:
             OpenSearchClient()
             _, kwargs = mock_os_cls.call_args
             assert kwargs.get("headers", {}).get("Authorization") == "Bearer test-key"
@@ -206,9 +184,7 @@ class TestOpenSearchClientInit:
             # wired via http_auth (the documented silent-401 failure mode).
             assert "http_auth" not in kwargs
 
-    def test_auto_detect_basic_when_username_password_set(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_auto_detect_basic_when_username_password_set(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """username+password (no AWS_REGION, no api_key) → http_auth tuple."""
         monkeypatch.setenv("OPENSEARCH_URL", "https://os.example.com")
         monkeypatch.delenv("AWS_REGION", raising=False)
@@ -218,18 +194,14 @@ class TestOpenSearchClientInit:
         monkeypatch.delenv("OPENSEARCH_AUTH", raising=False)
 
         mock_client = MagicMock()
-        with patch(
-            "kibana_mcp.os_client.OpenSearch", return_value=mock_client
-        ) as mock_os_cls:
+        with patch("kibana_mcp.os_client.OpenSearch", return_value=mock_client) as mock_os_cls:
             client = OpenSearchClient()
             assert client.username == "admin"
             assert client.password == "secret"
             _, kwargs = mock_os_cls.call_args
             assert kwargs.get("http_auth") == ("admin", "secret")
 
-    def test_auto_detect_anonymous_when_no_credentials(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_auto_detect_anonymous_when_no_credentials(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """No credentials → OpenSearch() called without auth kwargs."""
         monkeypatch.setenv("OPENSEARCH_URL", "https://os.example.com")
         monkeypatch.delenv("AWS_REGION", raising=False)
@@ -239,17 +211,13 @@ class TestOpenSearchClientInit:
         monkeypatch.delenv("OPENSEARCH_AUTH", raising=False)
 
         mock_client = MagicMock()
-        with patch(
-            "kibana_mcp.os_client.OpenSearch", return_value=mock_client
-        ) as mock_os_cls:
+        with patch("kibana_mcp.os_client.OpenSearch", return_value=mock_client) as mock_os_cls:
             OpenSearchClient()
             _, kwargs = mock_os_cls.call_args
             assert "http_auth" not in kwargs
             assert "Authorization" not in kwargs.get("headers", {})
 
-    def test_ssl_kwargs_consistent_across_branches(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_ssl_kwargs_consistent_across_branches(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """KIBANA_SSL_VERIFY=false → verify_certs=False AND ssl_show_warn=False
         (warning-suppression parity with KibanaClient); no redundant use_ssl."""
         monkeypatch.setenv("OPENSEARCH_URL", "https://os.example.com")
@@ -265,18 +233,14 @@ class TestOpenSearchClientInit:
                 monkeypatch.delenv("KIBANA_API_KEY", raising=False)
             else:
                 monkeypatch.setenv("KIBANA_API_KEY", api_key_env)
-            with patch(
-                "kibana_mcp.os_client.OpenSearch", return_value=mock_client
-            ) as mock_os_cls:
+            with patch("kibana_mcp.os_client.OpenSearch", return_value=mock_client) as mock_os_cls:
                 OpenSearchClient()
                 _, kwargs = mock_os_cls.call_args
                 assert kwargs.get("verify_certs") is False
                 assert kwargs.get("ssl_show_warn") is False
                 assert "use_ssl" not in kwargs
 
-    def test_ssl_show_warn_true_when_verify_enabled(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_ssl_show_warn_true_when_verify_enabled(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Default (verify on) → ssl_show_warn stays True."""
         monkeypatch.setenv("OPENSEARCH_URL", "https://os.example.com")
         monkeypatch.delenv("KIBANA_SSL_VERIFY", raising=False)
@@ -286,17 +250,13 @@ class TestOpenSearchClientInit:
         monkeypatch.delenv("KIBANA_PASSWORD", raising=False)
         monkeypatch.delenv("OPENSEARCH_AUTH", raising=False)
 
-        with patch(
-            "kibana_mcp.os_client.OpenSearch", return_value=MagicMock()
-        ) as mock_os_cls:
+        with patch("kibana_mcp.os_client.OpenSearch", return_value=MagicMock()) as mock_os_cls:
             OpenSearchClient()
             _, kwargs = mock_os_cls.call_args
             assert kwargs.get("verify_certs") is True
             assert kwargs.get("ssl_show_warn") is True
 
-    def test_timeout_30s_passed_to_constructor(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_timeout_30s_passed_to_constructor(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Parity with KibanaClient: every request uses a 30 s timeout
         (opensearch-py's default is 10 s)."""
         monkeypatch.setenv("OPENSEARCH_URL", "https://os.example.com")
@@ -308,26 +268,20 @@ class TestOpenSearchClientInit:
         mock_client = MagicMock()
         # Anonymous branch
         monkeypatch.delenv("KIBANA_API_KEY", raising=False)
-        with patch(
-            "kibana_mcp.os_client.OpenSearch", return_value=mock_client
-        ) as mock_os_cls:
+        with patch("kibana_mcp.os_client.OpenSearch", return_value=mock_client) as mock_os_cls:
             OpenSearchClient()
             _, kwargs = mock_os_cls.call_args
             assert kwargs.get("timeout") == 30
         # Token branch
         monkeypatch.setenv("KIBANA_API_KEY", "k")
-        with patch(
-            "kibana_mcp.os_client.OpenSearch", return_value=mock_client
-        ) as mock_os_cls:
+        with patch("kibana_mcp.os_client.OpenSearch", return_value=mock_client) as mock_os_cls:
             OpenSearchClient()
             _, kwargs = mock_os_cls.call_args
             assert kwargs.get("timeout") == 30
 
     # ── Forced OPENSEARCH_AUTH ────────────────────────────────────────────────
 
-    def test_forced_sigv4_mode_valid(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_forced_sigv4_mode_valid(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """OPENSEARCH_AUTH=sigv4 + AWS_REGION → SigV4 auth constructed."""
         monkeypatch.setenv("OPENSEARCH_URL", "https://os.example.com")
         monkeypatch.setenv("OPENSEARCH_AUTH", "sigv4")
@@ -337,18 +291,14 @@ class TestOpenSearchClientInit:
         mock_boto3 = _make_boto3_mock()
         mock_client = MagicMock()
         with patch.dict(sys.modules, {"boto3": mock_boto3}):
-            with patch(
-                "kibana_mcp.os_client.OpenSearch", return_value=mock_client
-            ) as mock_os_cls:
+            with patch("kibana_mcp.os_client.OpenSearch", return_value=mock_client) as mock_os_cls:
                 with patch("kibana_mcp.os_client.AWSV4SignerAuth") as mock_aws_auth:
                     OpenSearchClient()
                     mock_aws_auth.assert_called_once()
                     _, kwargs = mock_os_cls.call_args
                     assert "http_auth" in kwargs
 
-    def test_forced_sigv4_mode_missing_region_raises(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_forced_sigv4_mode_missing_region_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """OPENSEARCH_AUTH=sigv4 without AWS_REGION → ConfigError."""
         monkeypatch.setenv("OPENSEARCH_URL", "https://os.example.com")
         monkeypatch.setenv("OPENSEARCH_AUTH", "sigv4")
@@ -358,9 +308,7 @@ class TestOpenSearchClientInit:
             with pytest.raises(ConfigError, match="AWS_REGION"):
                 OpenSearchClient()
 
-    def test_forced_basic_mode_valid(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_forced_basic_mode_valid(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """OPENSEARCH_AUTH=basic + credentials → http_auth tuple."""
         monkeypatch.setenv("OPENSEARCH_URL", "https://os.example.com")
         monkeypatch.setenv("OPENSEARCH_AUTH", "basic")
@@ -369,17 +317,13 @@ class TestOpenSearchClientInit:
         monkeypatch.delenv("AWS_REGION", raising=False)
 
         mock_client = MagicMock()
-        with patch(
-            "kibana_mcp.os_client.OpenSearch", return_value=mock_client
-        ) as mock_os_cls:
+        with patch("kibana_mcp.os_client.OpenSearch", return_value=mock_client) as mock_os_cls:
             client = OpenSearchClient()
             assert client.username == "admin"
             _, kwargs = mock_os_cls.call_args
             assert kwargs.get("http_auth") == ("admin", "secret")
 
-    def test_forced_basic_mode_missing_credentials_raises(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_forced_basic_mode_missing_credentials_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """OPENSEARCH_AUTH=basic without username → ConfigError."""
         monkeypatch.setenv("OPENSEARCH_URL", "https://os.example.com")
         monkeypatch.setenv("OPENSEARCH_AUTH", "basic")
@@ -390,9 +334,7 @@ class TestOpenSearchClientInit:
             with pytest.raises(ConfigError, match="KIBANA_USERNAME"):
                 OpenSearchClient()
 
-    def test_forced_token_mode_valid(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_forced_token_mode_valid(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """OPENSEARCH_AUTH=token + KIBANA_API_KEY → Bearer via headers kwarg."""
         monkeypatch.setenv("OPENSEARCH_URL", "https://os.example.com")
         monkeypatch.setenv("OPENSEARCH_AUTH", "token")
@@ -400,9 +342,7 @@ class TestOpenSearchClientInit:
         monkeypatch.delenv("AWS_REGION", raising=False)
 
         mock_client = MagicMock()
-        with patch(
-            "kibana_mcp.os_client.OpenSearch", return_value=mock_client
-        ) as mock_os_cls:
+        with patch("kibana_mcp.os_client.OpenSearch", return_value=mock_client) as mock_os_cls:
             OpenSearchClient()
             _, kwargs = mock_os_cls.call_args
             assert kwargs.get("headers", {}).get("Authorization") == "Bearer mykey"
@@ -410,9 +350,7 @@ class TestOpenSearchClientInit:
             # wired via http_auth (the documented silent-401 failure mode).
             assert "http_auth" not in kwargs
 
-    def test_forced_token_mode_missing_key_raises(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_forced_token_mode_missing_key_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """OPENSEARCH_AUTH=token without KIBANA_API_KEY → ConfigError."""
         monkeypatch.setenv("OPENSEARCH_URL", "https://os.example.com")
         monkeypatch.setenv("OPENSEARCH_AUTH", "token")
@@ -422,9 +360,7 @@ class TestOpenSearchClientInit:
             with pytest.raises(ConfigError, match="KIBANA_API_KEY"):
                 OpenSearchClient()
 
-    def test_forced_unknown_auth_mode_raises(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_forced_unknown_auth_mode_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """OPENSEARCH_AUTH=oauth2 (unknown value) → ConfigError."""
         monkeypatch.setenv("OPENSEARCH_URL", "https://os.example.com")
         monkeypatch.setenv("OPENSEARCH_AUTH", "oauth2")
@@ -433,9 +369,7 @@ class TestOpenSearchClientInit:
             with pytest.raises(ConfigError):
                 OpenSearchClient()
 
-    def test_auth_mode_env_whitespace_stripped(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_auth_mode_env_whitespace_stripped(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """OPENSEARCH_AUTH=' token ' (whitespace from shell/compose) still
         selects token mode instead of hitting the unknown-mode branch."""
         monkeypatch.setenv("OPENSEARCH_URL", "https://os.example.com")
@@ -444,16 +378,12 @@ class TestOpenSearchClientInit:
         monkeypatch.delenv("AWS_REGION", raising=False)
 
         mock_client = MagicMock()
-        with patch(
-            "kibana_mcp.os_client.OpenSearch", return_value=mock_client
-        ) as mock_os_cls:
+        with patch("kibana_mcp.os_client.OpenSearch", return_value=mock_client) as mock_os_cls:
             OpenSearchClient()
             _, kwargs = mock_os_cls.call_args
             assert kwargs.get("headers", {}).get("Authorization") == "Bearer mykey"
 
-    def test_auth_mode_constructor_override(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_auth_mode_constructor_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """auth_mode kwarg overrides the OPENSEARCH_AUTH env var."""
         monkeypatch.setenv("OPENSEARCH_URL", "https://os.example.com")
         monkeypatch.setenv("OPENSEARCH_AUTH", "basic")
@@ -463,9 +393,7 @@ class TestOpenSearchClientInit:
         monkeypatch.delenv("KIBANA_PASSWORD", raising=False)
 
         mock_client = MagicMock()
-        with patch(
-            "kibana_mcp.os_client.OpenSearch", return_value=mock_client
-        ) as mock_os_cls:
+        with patch("kibana_mcp.os_client.OpenSearch", return_value=mock_client) as mock_os_cls:
             OpenSearchClient(auth_mode="token")
             _, kwargs = mock_os_cls.call_args
             assert kwargs.get("headers", {}).get("Authorization") == "Bearer mykey"
@@ -474,9 +402,7 @@ class TestOpenSearchClientInit:
 class TestOpenSearchClientMethods:
     """Duck-type method compatibility with KibanaClient."""
 
-    def test_get_es_delegates_to_transport(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_get_es_delegates_to_transport(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """get_es(path, *, params) calls transport.perform_request("GET", ...)."""
         monkeypatch.setenv("OPENSEARCH_URL", "https://os.example.com")
         monkeypatch.delenv("KIBANA_API_KEY", raising=False)
@@ -501,9 +427,7 @@ class TestOpenSearchClientMethods:
         )
         assert result == [{"index": ".kibana"}]
 
-    def test_post_es_delegates_to_transport(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_post_es_delegates_to_transport(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """post_es(path, body) calls transport.perform_request("POST", ...)."""
         monkeypatch.setenv("OPENSEARCH_URL", "https://os.example.com")
         monkeypatch.delenv("KIBANA_API_KEY", raising=False)
@@ -515,9 +439,7 @@ class TestOpenSearchClientMethods:
         mock_client_inst = MagicMock()
         mock_transport = MagicMock()
         mock_client_inst.transport = mock_transport
-        mock_transport.perform_request.return_value = {
-            "hits": {"total": {"value": 5}, "hits": []}
-        }
+        mock_transport.perform_request.return_value = {"hits": {"total": {"value": 5}, "hits": []}}
 
         with patch("kibana_mcp.os_client.OpenSearch", return_value=mock_client_inst):
             client = OpenSearchClient()
@@ -530,9 +452,7 @@ class TestOpenSearchClientMethods:
         )
         assert result == {"hits": {"total": {"value": 5}, "hits": []}}
 
-    def test_close_is_safe(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_close_is_safe(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """close() on a constructed client raises no exception."""
         monkeypatch.setenv("OPENSEARCH_URL", "https://os.example.com")
         monkeypatch.delenv("KIBANA_API_KEY", raising=False)
@@ -559,9 +479,7 @@ class TestOpenSearchClientGetKibana:
         monkeypatch.delenv("KIBANA_PASSWORD", raising=False)
         monkeypatch.delenv("OPENSEARCH_AUTH", raising=False)
 
-    def test_get_kibana_without_kibana_url_raises_config_error(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_get_kibana_without_kibana_url_raises_config_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """No KIBANA_URL → actionable ConfigError, not AttributeError."""
         monkeypatch.delenv("KIBANA_URL", raising=False)
         with patch("kibana_mcp.os_client.OpenSearch", return_value=MagicMock()):
@@ -569,32 +487,22 @@ class TestOpenSearchClientGetKibana:
             with pytest.raises(ConfigError, match="KIBANA_URL"):
                 client.get_kibana("/api/saved_objects/_find")
 
-    def test_get_kibana_delegates_to_kibana_client(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_get_kibana_delegates_to_kibana_client(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """KIBANA_URL set → lazily constructs KibanaClient and delegates."""
         monkeypatch.setenv("KIBANA_URL", "https://kibana.example.com")
         mock_kibana = MagicMock()
         mock_kibana.get_kibana.return_value = {"saved_objects": []}
         with patch("kibana_mcp.os_client.OpenSearch", return_value=MagicMock()):
             client = OpenSearchClient()
-            with patch(
-                "kibana_mcp.client.KibanaClient", return_value=mock_kibana
-            ) as mock_cls:
-                result = client.get_kibana(
-                    "/api/saved_objects/_find", params={"type": "dashboard"}
-                )
+            with patch("kibana_mcp.client.KibanaClient", return_value=mock_kibana) as mock_cls:
+                result = client.get_kibana("/api/saved_objects/_find", params={"type": "dashboard"})
                 # Second call reuses the cached KibanaClient
                 client.get_kibana("/api/saved_objects/_find")
         assert result == {"saved_objects": []}
         mock_cls.assert_called_once()
-        mock_kibana.get_kibana.assert_any_call(
-            "/api/saved_objects/_find", params={"type": "dashboard"}
-        )
+        mock_kibana.get_kibana.assert_any_call("/api/saved_objects/_find", params={"type": "dashboard"})
 
-    def test_close_closes_lazy_kibana_client(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_close_closes_lazy_kibana_client(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """close() also closes the lazily constructed KibanaClient."""
         monkeypatch.setenv("KIBANA_URL", "https://kibana.example.com")
         mock_kibana = MagicMock()
@@ -619,8 +527,6 @@ class TestOpenSearchClientLiveIntegration:
         client = OpenSearchClient(os_url=live_url)
         try:
             result = client.get_es("/_cat/health", params={"format": "json"})
-            assert isinstance(result, list), (
-                f"Expected list from _cat/health, got {type(result)}"
-            )
+            assert isinstance(result, list), f"Expected list from _cat/health, got {type(result)}"
         finally:
             client.close()
