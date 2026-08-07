@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.2] — 2026-08-07
+
+### Fixed
+
+- Зависимость `mcp` ограничена сверху: `mcp>=1.2` → `mcp>=1.2,<2`.
+  В `mcp` 2.0.0 удалён модуль `mcp.server.fastmcp`, на который опираются
+  `_mcp.py` (`FastMCP`), `output.py` (`ToolError`) и тесты, поэтому чистая
+  установка (`pip install kibana-mcp`, `uvx kibana-mcp`) резолвила 2.0.0
+  и падала на импорте с `ModuleNotFoundError: No module named
+  'mcp.server.fastmcp'` — из MCP-клиента это выглядело как непрозрачная
+  transport-ошибка. Порт на API `MCPServer` из mcp 2.0 — отдельная работа.
+  Спасибо @ripa1993 (PR #2).
+
 ## [0.2.1] — 2026-08-07
 
 ### Changed
